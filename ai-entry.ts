@@ -1,12 +1,12 @@
 // HullHub 1.2 — IA. Supabase Edge Function "ai-entry".
-// Modi: auto (scrivi o chiedi), receipt (foto scontrino/fattura), plate (foto targhetta), summary, advice, diagnose, message, translate.
+// Modi: auto (scrivi o chiedi), doc (foto o PDF allegato: polizza, fattura, certificato…), receipt (foto scontrino/fattura), plate (foto targhetta), summary, advice, diagnose, message, translate.
 // Segreto richiesto: ANTHROPIC_API_KEY (lo inserisce Simone). Verify JWT: OFF.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const MODEL = "claude-haiku-5-5";
 const LIMITS: Record<string, number> = { "": 10, base: 10, pro: 30, fleet: 60 };
 const GLOBAL_DAY = 20000;
-const MODES = ["auto", "receipt", "plate", "summary", "advice", "diagnose", "message", "translate", "manuals"];
+const MODES = ["auto", "receipt", "plate", "summary", "advice", "diagnose", "message", "translate", "manuals", "doc"];
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -38,13 +38,15 @@ const ITEM = {
     issueType: { type: "string", enum: ["avaria", "controllo", "nc", "manca"] },
     severity: { type: "string", enum: ["bassa", "media", "alta", "ferma"] },
     notes: { type: "string" },
+    periodFrom: { type: "string", description: "YYYY-MM-DD start of the period covered (fixed expenses like insurance, berth, storage)" },
+    periodTo: { type: "string", description: "YYYY-MM-DD end of the period covered" },
   },
   required: ["type", "title"],
 };
 const T_ITEMS = {
   name: "proponi_righe",
   description: "Propose records to create or update in the boat app. Nothing is saved until the user confirms.",
-  input_schema: { type: "object", properties: { items: { type: "array", maxItems: 6, items: ITEM }, question: { type: "string", description: "Short question back if nothing can be created" } }, required: ["items"] },
+  input_schema: { type: "object", properties: { items: { type: "array", maxItems: 6, items: ITEM }, question: { type: "string", description: "Short question back if nothing can be created" }, docTitle: { type: "string", description: "Only for an attached document: short name to file it under, e.g. \"Polizza Unipol 2026\"" }, docKind: { type: "string", enum: ["fattura", "preventivo", "certificato", "manuale", "foto", "altro"], description: "Only for an attached document: invoice/receipt=fattura, quote=preventivo, insurance policy, certificate, licence or registration=certificato" } }, required: ["items"] },
 };
 const T_ANSWER = {
   name: "rispondi",
@@ -70,6 +72,16 @@ The user writes or dictates a sentence. If it describes something done, bought, 
 ${RULES_ITEMS}`;
     case "receipt": return `${b}
 The image is a receipt, invoice or delivery note. Read it and call proponi_righe with ONE expense item (title = short description of what was bought, amount = total, date, category from ctx.expenseCats, supplierId if the shop matches ctx.suppliers else supplierName). If it is clearly a fuel receipt also add a fuel item with liters and price. If you cannot read it, return items=[] and a question. ${RULES_ITEMS}`;
+    case "doc": return `${b}
+The user attached a photo or a PDF. First understand what it is (insurance policy or certificate, invoice, receipt, quote, safety/registration/radio certificate, survey, licence, engine plate, part label, work report...).
+If the user's text asks a question about it, call rispondi and answer from the document.
+Otherwise call proponi_righe with the useful records, max 4, only with data actually written in the document, and always set docTitle and docKind:
+- Insurance policy: ONE expense (title "Assicurazione <company>", category = the insurance category in ctx.expenseCats, amount = total premium, date = payment or issue date, periodFrom/periodTo = coverage dates) and ONE deadline (title "Scadenza assicurazione <company>", date = coverage end, notes = policy number, coverage and limits in one line).
+- Any document with an expiry (certificate, licence, extinguisher or liferaft service, survey): ONE deadline with that date and the reference number in notes.
+- Invoice or receipt: ONE expense (amount = total, date, category, supplier); for fuel also a fuel item. For a yearly berth/storage contract set periodFrom/periodTo.
+- Quote: ONE job with status todo, supplier, and the quoted amount and items in notes.
+- Engine plate or part label: engine_info or part as for a data plate.
+If nothing can be read, items=[] and a short question. ${RULES_ITEMS}`;
     case "plate": return `${b}
 The image is an engine/generator/equipment data plate or a spare-part label. Call proponi_righe: for an engine plate, ONE engine_info item with engineId (best match in ctx.engines, by kind and position if stated), brand, model, serial, power; for a part label, ONE part item with title, brand, code, qty 1. If unreadable, items=[] and a question. ${RULES_ITEMS}`;
     case "summary": return `${b}
@@ -95,6 +107,9 @@ Deno.serve(async (req) => {
   const mode = MODES.includes(body?.mode) ? body.mode : "auto";
   const text = String(body?.text || "").trim().slice(0, 4000);
   const image = typeof body?.image === "string" ? body.image : "";
+  const pdf = mode === "doc" && typeof body?.pdf === "string" ? body.pdf : "";
+  if (mode === "doc" && !image && !pdf) return json({ error: "no_file" }, 400);
+  if (pdf && (pdf.length > 6_400_000 || !pdf.startsWith("JVBER"))) return json({ error: "pdf_bad" }, 400);
   if ((mode === "receipt" || mode === "plate") && !image) return json({ error: "no_image" }, 400);
   if (image && image.length > 2_800_000) return json({ error: "image_too_big" }, 400);
   if (["auto", "diagnose", "translate"].includes(mode) && text.length < 2) return json({ error: "bad_text" }, 400);
@@ -119,13 +134,14 @@ Deno.serve(async (req) => {
   if (mode === "manuals") return await manuals(key, extra, ctx);
   const content: any[] = [];
   if (image) content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } });
-  content.push({ type: "text", text: text || (mode === "summary" ? "Riassunto" : mode === "advice" ? "Consigli" : "Leggi l'immagine") });
-  const tools = mode === "auto" ? [T_ITEMS, T_ANSWER] : (mode === "receipt" || mode === "plate") ? [T_ITEMS] : [T_ANSWER];
+  if (pdf) content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf } });
+  content.push({ type: "text", text: text || (mode === "summary" ? "Riassunto" : mode === "advice" ? "Consigli" : mode === "doc" ? "Leggi il documento allegato e prepara le righe." : "Leggi l'immagine") });
+  const tools = mode === "auto" || mode === "doc" ? [T_ITEMS, T_ANSWER] : (mode === "receipt" || mode === "plate") ? [T_ITEMS] : [T_ANSWER];
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
-      model: MODEL, max_tokens: mode === "summary" || mode === "diagnose" || mode === "advice" ? 1400 : 900,
+      model: MODEL, max_tokens: mode === "doc" ? 1400 : mode === "summary" || mode === "diagnose" || mode === "advice" ? 1400 : 900,
       system: system(mode, ctx, extra), tools,
       tool_choice: tools.length === 1 ? { type: "tool", name: tools[0].name } : { type: "any" },
       messages: [{ role: "user", content }],
@@ -136,7 +152,8 @@ Deno.serve(async (req) => {
   const use = (out.content || []).find((c: any) => c.type === "tool_use");
   if (use?.name === "rispondi") return json({ text: String(use.input?.text || "").slice(0, 6000), items: [] });
   const items = Array.isArray(use?.input?.items) ? use.input.items.filter((x: any) => TYPES.includes(x?.type)).slice(0, 6) : [];
-  return json({ items, question: use?.input?.question || "" });
+  const dk = ["fattura", "preventivo", "certificato", "manuale", "foto", "altro"].includes(use?.input?.docKind) ? use.input.docKind : "altro";
+  return json({ items, question: use?.input?.question || "", docTitle: String(use?.input?.docTitle || "").slice(0, 120), docKind: dk });
 });
 
 // ---- Manuali ufficiali e dati di manutenzione (ricerca web) ----
