@@ -62,7 +62,10 @@ Context (JSON, the user's boat data): ${JSON.stringify(ctx)}`;
 const RULES_ITEMS = `Record types: job (work to do/in progress), expense (money spent), deadline (something that expires), fuel (refuelling), issue (breakdown, check, non-conformity, missing item), service_done (a periodic service from ctx.services was just done), part (spare part), gear (safety equipment), engine_info (data read for an engine in ctx.engines: brand/model/serial/power).
 - area copied exactly from ctx.areas. "fatto a metà"/"half done" = progress 50 status doing; finished = status done.
 - If a supplier does the work: who=fornitore (or cantiere) and status supplier unless finished.
-- Resolve relative dates from today. Do not add things the user did not say.`;
+- Resolve relative dates from today. Do not add things the user did not say.
+- "Segnami da comprare X" / "buy X" / "we need X": an issue with issueType manca, title "X", qty if said (this is the shopping list). Do this even if X already exists in ctx.parts.
+- If what the user asks to set up already exists in the context (e.g. services for that engine), do not duplicate it: create only the missing parts of the request and mention the rest in "question".
+- In ctx.services, a lastDate equal for all services usually means the date the plan was set up, not a real service: say so if relevant.`;
 
 function system(mode: string, ctx: Record<string, unknown>, extra: Record<string, string>) {
   const b = base(ctx);
