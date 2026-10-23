@@ -46,7 +46,7 @@ const ITEM = {
 const T_ITEMS = {
   name: "proponi_righe",
   description: "Propose records to create or update in the boat app. Nothing is saved until the user confirms.",
-  input_schema: { type: "object", properties: { items: { type: "array", maxItems: 6, items: ITEM }, question: { type: "string", description: "Short question back if nothing can be created" }, docTitle: { type: "string", description: "Only for an attached document: short name to file it under, e.g. \"Polizza Unipol 2026\"" }, docKind: { type: "string", enum: ["fattura", "preventivo", "certificato", "manuale", "foto", "altro"], description: "Only for an attached document: invoice/receipt=fattura, quote=preventivo, insurance policy, certificate, licence or registration=certificato" } }, required: ["items"] },
+  input_schema: { type: "object", properties: { items: { type: "array", maxItems: 6, items: ITEM }, question: { type: "string", description: "Short question back if nothing can be created, or a short warning/note shown together with the items (e.g. document already expired)" }, docTitle: { type: "string", description: "Only for an attached document: short name to file it under, e.g. \"Polizza Unipol 2026\"" }, docKind: { type: "string", enum: ["fattura", "preventivo", "certificato", "manuale", "foto", "altro"], description: "Only for an attached document: invoice/receipt=fattura, quote=preventivo, insurance policy, certificate, licence or registration=certificato" } }, required: ["items"] },
 };
 const T_ANSWER = {
   name: "rispondi",
@@ -65,6 +65,7 @@ const RULES_ITEMS = `Record types: job (work to do/in progress), expense (money 
 - Resolve relative dates from today. Do not add things the user did not say.
 - "Segnami da comprare X" / "buy X" / "we need X": an issue with issueType manca, title "X", qty if said (this is the shopping list). Do this even if X already exists in ctx.parts.
 - If what the user asks to set up already exists in the context (e.g. services for that engine), do not duplicate it: create only the missing parts of the request and mention the rest in "question".
+- If an expiry or coverage end date is before today (ctx.today), still create the items but put a clear warning in "question", e.g. "Attenzione: la polizza è scaduta il 30/04/2026." (in the user language). Same if it expires within 30 days.
 - In ctx.services, a lastDate equal for all services usually means the date the plan was set up, not a real service: say so if relevant.`;
 
 function system(mode: string, ctx: Record<string, unknown>, extra: Record<string, string>) {
