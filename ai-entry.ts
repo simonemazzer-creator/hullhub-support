@@ -6,7 +6,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const MODEL = "claude-haiku-5-5";
 const LIMITS: Record<string, number> = { "": 10, base: 10, pro: 30, fleet: 60 };
 const GLOBAL_DAY = 20000;
-const MODES = ["auto", "receipt", "plate", "summary", "advice", "diagnose", "message", "translate", "manuals", "doc"];
+const MODES = ["auto", "receipt", "plate", "summary", "advice", "diagnose", "message", "translate", "manuals", "doc", "svcmap"];
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -136,6 +136,7 @@ Deno.serve(async (req) => {
   if (lim === false) return json({ error: "limit" }, 429);
 
   if (mode === "manuals") return await manuals(key, extra, ctx);
+  if (mode === "svcmap") return await svcmap(key, body, ctx);
   const content: any[] = [];
   if (image) content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } });
   if (pdf) content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf } });
@@ -165,6 +166,32 @@ Deno.serve(async (req) => {
   const dk = ["fattura", "preventivo", "certificato", "manuale", "foto", "altro"].includes(use?.input?.docKind) ? use.input.docKind : "altro";
   return json({ items, question: use?.input?.question || "", docTitle: String(use?.input?.docTitle || "").slice(0, 120), docKind: dk });
 });
+
+// ---- Abbina i tagliandi del costruttore a quelli già nel piano ----
+async function svcmap(key: string, body: any, ctx: Record<string, unknown>) {
+  const off = (Array.isArray(body?.official) ? body.official : []).slice(0, 40).map((v: any, i: number) => ({ i, name: String(v?.name || "").slice(0, 120), everyH: +v?.everyH || 0, everyM: +v?.everyM || 0 }));
+  const eid = String(body?.extra?.engineId || "");
+  const mine = ((ctx.services as any[]) || []).filter((v: any) => !eid || v.engineId === eid || !v.engineId).slice(0, 80).map((v: any) => ({ id: String(v.id), name: String(v.name || "").slice(0, 120), everyH: v.everyH, everyM: v.everyM }));
+  if (!off.length) return json({ pairs: [] });
+  const tool = { name: "abbina", description: "Pairs of the same maintenance task", input_schema: { type: "object", properties: { pairs: { type: "array", items: { type: "object", properties: { i: { type: "number", description: "index in OFFICIAL" }, id: { type: "string", description: "id in MINE" } }, required: ["i", "id"] } } }, required: ["pairs"] } };
+  const sys = `Match maintenance tasks. OFFICIAL is the manufacturer's list for one engine, MINE is the user's maintenance plan (any language). Pair an OFFICIAL item with a MINE item only when they are clearly the same task (e.g. "Water pump impeller" = "Girante pompa acqua"; "Lower unit gear oil" = "Olio piede"). Each item at most once. Do not pair different tasks. Call abbina.`;
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: MODEL, max_tokens: 1200, system: sys, tools: [tool], tool_choice: { type: "tool", name: "abbina" }, messages: [{ role: "user", content: "OFFICIAL: " + JSON.stringify(off) + "\nMINE: " + JSON.stringify(mine) }] }),
+  });
+  if (!r.ok) return json({ error: "ai_" + r.status }, 502);
+  const out = await r.json();
+  const use = (out.content || []).find((c: any) => c.type === "tool_use");
+  const ids = new Set(mine.map((m: any) => m.id));
+  const usedI = new Set<number>(), usedId = new Set<string>();
+  const pairs = (Array.isArray(use?.input?.pairs) ? use.input.pairs : []).filter((p: any) => {
+    const i = +p?.i, id = String(p?.id || "");
+    if (!(i >= 0 && i < off.length) || !ids.has(id) || usedI.has(i) || usedId.has(id)) return false;
+    usedI.add(i); usedId.add(id); return true;
+  }).map((p: any) => ({ i: +p.i, id: String(p.id) }));
+  return json({ pairs });
+}
 
 // ---- Risposta con ricerca web (solo quando serve) ----
 async function webAnswer(key: string, question: string, query: string, ctx: Record<string, unknown>) {
