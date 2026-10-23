@@ -50,7 +50,7 @@ const T_ITEMS = {
 };
 const T_ANSWER = {
   name: "rispondi",
-  description: "Answer the user's question or request in plain text. For anything about THIS boat use only the data in the context. For general nautical, technical, maintenance or regulatory questions use your own knowledge (practical, and tell to check the manual/official source when it matters). Set needsWeb=true only when a correct answer needs current or very specific information from the web (prices, recent rules, a product spec or part number you are not sure of, opening hours, contacts); then text may be a short draft.",
+  description: "Answer the user's question or request in plain text. For anything about THIS boat use only the data in the context. For general nautical, technical, maintenance or regulatory questions use your own knowledge (practical, and tell to check the manual/official source when it matters). Set needsWeb=true when a correct answer needs current or specific information: anything about a specific engine/boat/product make and model (oils, quantities, procedures, intervals, part numbers, technology), prices, recent rules, opening hours, contacts. Generic how-to questions with no specific model can be answered without web. When needsWeb, text may be a short draft.",
   input_schema: { type: "object", properties: { text: { type: "string" }, needsWeb: { type: "boolean" }, webQuery: { type: "string", description: "best web search query, if needsWeb" } }, required: ["text"] },
 };
 
