@@ -1,0 +1,183 @@
+// HullHub 1.2 — IA. Supabase Edge Function "ai-entry".
+// Modi: auto (scrivi o chiedi), receipt (foto scontrino/fattura), plate (foto targhetta), summary, advice, diagnose, message, translate.
+// Segreto richiesto: ANTHROPIC_API_KEY (lo inserisce Simone). Verify JWT: OFF.
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const MODEL = "claude-haiku-5-5";
+const LIMITS: Record<string, number> = { "": 10, base: 10, pro: 30, fleet: 60 };
+const GLOBAL_DAY = 20000;
+const MODES = ["auto", "receipt", "plate", "summary", "advice", "diagnose", "message", "translate", "manuals"];
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
+
+const TYPES = ["job", "expense", "deadline", "fuel", "issue", "service_done", "part", "gear", "engine_info"];
+const ITEM = {
+  type: "object",
+  properties: {
+    type: { type: "string", enum: TYPES },
+    title: { type: "string", description: "Short title/description in the user's language" },
+    area: { type: "string", description: "One of ctx.areas, exactly as written" },
+    status: { type: "string", enum: ["todo", "doing", "supplier", "done"] },
+    progress: { type: "number", description: "0-100, jobs only" },
+    who: { type: "string", enum: ["equipaggio", "armatore", "cantiere", "fornitore"] },
+    supplierId: { type: "string", description: "id from ctx.suppliers, only if clearly named" },
+    supplierName: { type: "string", description: "supplier/shop name as read, if not in ctx.suppliers" },
+    assigneeId: { type: "string", description: "id from ctx.crew, only if clearly named" },
+    engineId: { type: "string", description: "id from ctx.engines" },
+    serviceId: { type: "string", description: "id from ctx.services, for service_done" },
+    date: { type: "string", description: "YYYY-MM-DD (expense/fuel/deadline/issue date or job due date)" },
+    amount: { type: "number", description: "total amount in the boat currency" },
+    category: { type: "string", description: "one of ctx.expenseCats, exactly" },
+    liters: { type: "number" }, price: { type: "number", description: "price per liter" }, hours: { type: "number" },
+    qty: { type: "number" },
+    brand: { type: "string" }, model: { type: "string" }, serial: { type: "string" }, code: { type: "string", description: "part number" }, power: { type: "string" },
+    issueType: { type: "string", enum: ["avaria", "controllo", "nc", "manca"] },
+    severity: { type: "string", enum: ["bassa", "media", "alta", "ferma"] },
+    notes: { type: "string" },
+  },
+  required: ["type", "title"],
+};
+const T_ITEMS = {
+  name: "proponi_righe",
+  description: "Propose records to create or update in the boat app. Nothing is saved until the user confirms.",
+  input_schema: { type: "object", properties: { items: { type: "array", maxItems: 6, items: ITEM }, question: { type: "string", description: "Short question back if nothing can be created" } }, required: ["items"] },
+};
+const T_ANSWER = {
+  name: "rispondi",
+  description: "Answer the user's question or request in plain text, using only the boat data in the context.",
+  input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+};
+
+function base(ctx: Record<string, unknown>) {
+  return `You are the assistant inside HullHub, a boat-management app. Today is ${ctx.today}. Always write in the language with code "${ctx.lang || "it"}" unless asked otherwise. Be concise, practical, friendly; plain text, short paragraphs or "- " bullet lists, no markdown headings, no tables.
+Never invent ids: use only ids from the context. Money is in ${ctx.currency || "EUR"}.
+Context (JSON, the user's boat data): ${JSON.stringify(ctx)}`;
+}
+const RULES_ITEMS = `Record types: job (work to do/in progress), expense (money spent), deadline (something that expires), fuel (refuelling), issue (breakdown, check, non-conformity, missing item), service_done (a periodic service from ctx.services was just done), part (spare part), gear (safety equipment), engine_info (data read for an engine in ctx.engines: brand/model/serial/power).
+- area copied exactly from ctx.areas. "fatto a metà"/"half done" = progress 50 status doing; finished = status done.
+- If a supplier does the work: who=fornitore (or cantiere) and status supplier unless finished.
+- Resolve relative dates from today. Do not add things the user did not say.`;
+
+function system(mode: string, ctx: Record<string, unknown>, extra: Record<string, string>) {
+  const b = base(ctx);
+  switch (mode) {
+    case "auto": return `${b}
+The user writes or dictates a sentence. If it describes something done, bought, planned, broken, refuelled or expiring, call proponi_righe. If it is a question about the boat or a request for information/advice, call rispondi and answer from the data (say clearly when the data is not in the app).
+${RULES_ITEMS}`;
+    case "receipt": return `${b}
+The image is a receipt, invoice or delivery note. Read it and call proponi_righe with ONE expense item (title = short description of what was bought, amount = total, date, category from ctx.expenseCats, supplierId if the shop matches ctx.suppliers else supplierName). If it is clearly a fuel receipt also add a fuel item with liters and price. If you cannot read it, return items=[] and a question. ${RULES_ITEMS}`;
+    case "plate": return `${b}
+The image is an engine/generator/equipment data plate or a spare-part label. Call proponi_righe: for an engine plate, ONE engine_info item with engineId (best match in ctx.engines, by kind and position if stated), brand, model, serial, power; for a part label, ONE part item with title, brand, code, qty 1. If unreadable, items=[] and a question. ${RULES_ITEMS}`;
+    case "summary": return `${b}
+Write a summary for the owner of what happened on the boat in this period: ${extra.period || "last 30 days"}. Sections as short paragraphs: works done and in progress, engine hours and services, expenses (total and main items), problems and open issues, what is coming next (deadlines, planned works). Use only the data. Call rispondi.`;
+    case "advice": return `${b}
+Give practical maintenance advice for this boat ${extra.focus ? "for: " + extra.focus : "for the coming weeks"}: what is overdue or due soon (services by hours or months, deadlines, safety gear), what to prepare before launch or winter storage depending on the date and the yard dates, spares to restock (qty below min). Max 8 bullets, most urgent first, each with the reason from the data. Call rispondi.`;
+    case "diagnose": return `${b}
+The user describes a problem on board. Act as an experienced marine mechanic: list the most likely causes (most common first), simple checks the crew can safely do, what NOT to do, and when to stop and call a technician (suggest a supplier from ctx.suppliers if one fits). Consider the engines in the context. End with one short line saying this is guidance and does not replace a qualified technician; for safety risks (fire, fuel smell, water ingress, CO) tell them to stop and call for help first. Call rispondi.`;
+    case "message": return `${b}
+Write a ready-to-send message (WhatsApp/email style) from the boat owner/captain to a supplier. Purpose: ${extra.purpose || "request a quote"}. Job: ${extra.job || ""}. Supplier: ${extra.supplier || ""}. Write it in the language with code "${extra.to || ctx.lang || "it"}". Polite, short, concrete (boat name, what is needed, timing). No placeholders in square brackets except the sender's name at the end if unknown. Call rispondi.`;
+    case "translate": return `You translate text for a boat crew app. Translate the user's text into the language with code "${extra.to || ctx.lang || "it"}", keeping nautical terms correct and the tone of the original. Reply only via rispondi with the translation.`;
+  }
+  return b;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method !== "POST") return json({ error: "method" }, 405);
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!key) return json({ error: "not_configured" }, 503);
+  let body: any;
+  try { body = await req.json(); } catch { return json({ error: "bad_json" }, 400); }
+  const mode = MODES.includes(body?.mode) ? body.mode : "auto";
+  const text = String(body?.text || "").trim().slice(0, 4000);
+  const image = typeof body?.image === "string" ? body.image : "";
+  if ((mode === "receipt" || mode === "plate") && !image) return json({ error: "no_image" }, 400);
+  if (image && image.length > 2_800_000) return json({ error: "image_too_big" }, 400);
+  if (["auto", "diagnose", "translate"].includes(mode) && text.length < 2) return json({ error: "bad_text" }, 400);
+  const ctx = (body?.ctx && typeof body.ctx === "object") ? body.ctx : {};
+  if (JSON.stringify(ctx).length > 60000) return json({ error: "ctx_too_big" }, 400);
+  const extra: Record<string, string> = {};
+  for (const k of ["period", "focus", "purpose", "job", "supplier", "to", "engine", "kind"]) if (body?.extra?.[k]) extra[k] = String(body.extra[k]).slice(0, 400);
+  const plan = ["base", "pro", "fleet"].includes(body?.plan) ? body.plan : "";
+  const device = String(body?.device || "").slice(0, 64);
+
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  let who = device ? "dev:" + device : "ip:" + (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+  const auth = req.headers.get("authorization") || "";
+  if (auth.startsWith("Bearer ")) {
+    const { data } = await admin.auth.getUser(auth.slice(7));
+    if (data?.user?.id) who = "user:" + data.user.id;
+  }
+  const { data: lim, error: le } = await admin.rpc("ai_take", { p_key: who, p_max: LIMITS[plan] ?? 10, p_global: GLOBAL_DAY });
+  if (le) return json({ error: "limit_check" }, 500);
+  if (lim === false) return json({ error: "limit" }, 429);
+
+  if (mode === "manuals") return await manuals(key, extra, ctx);
+  const content: any[] = [];
+  if (image) content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } });
+  content.push({ type: "text", text: text || (mode === "summary" ? "Riassunto" : mode === "advice" ? "Consigli" : "Leggi l'immagine") });
+  const tools = mode === "auto" ? [T_ITEMS, T_ANSWER] : (mode === "receipt" || mode === "plate") ? [T_ITEMS] : [T_ANSWER];
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({
+      model: MODEL, max_tokens: mode === "summary" || mode === "diagnose" || mode === "advice" ? 1400 : 900,
+      system: system(mode, ctx, extra), tools,
+      tool_choice: tools.length === 1 ? { type: "tool", name: tools[0].name } : { type: "any" },
+      messages: [{ role: "user", content }],
+    }),
+  });
+  if (!r.ok) return json({ error: "ai_" + r.status }, 502);
+  const out = await r.json();
+  const use = (out.content || []).find((c: any) => c.type === "tool_use");
+  if (use?.name === "rispondi") return json({ text: String(use.input?.text || "").slice(0, 6000), items: [] });
+  const items = Array.isArray(use?.input?.items) ? use.input.items.filter((x: any) => TYPES.includes(x?.type)).slice(0, 6) : [];
+  return json({ items, question: use?.input?.question || "" });
+});
+
+// ---- Manuali ufficiali e dati di manutenzione (ricerca web) ----
+async function manuals(key: string, extra: Record<string, string>, ctx: Record<string, unknown>) {
+  const sys = `You find OFFICIAL documentation for a marine engine/drive/generator: owner's or operator's manual, maintenance schedule, service/parts list, published by the manufacturer (or an official dealer). Use web search (max 4 searches). Prefer direct PDF links on the manufacturer's domain. Never use piracy or "free manual download" aggregator sites.
+Then reply with ONLY a JSON object, no other text:
+{"docs":[{"title":"...","url":"https://...","kind":"manual|maintenance|parts|other","lang":"en","pdf":true}],
+ "data":{"oil":{"type":"e.g. SAE 15W-40 API CI-4","qty":"e.g. 18 l with filter"},"coolant":"","filters":[{"name":"oil filter","code":"..."}],"impeller":"","belts":"","services":[{"name":"Engine oil and filter","everyH":250,"everyM":12}],"notes":"short notes"}}
+Only include data you actually read in the sources; leave fields empty otherwise. Write titles and names in the language with code "${ctx.lang || "it"}" (keep part codes as they are). Max 5 docs.`;
+  const user = `Engine: ${extra.engine || ""}. Type: ${extra.kind || ""}.`;
+  const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }];
+  let messages: any[] = [{ role: "user", content: user }];
+  const seen = new Set<string>();
+  let finalText = "";
+  for (const model of [MODEL, "claude-sonnet-5-5"]) {
+    messages = [{ role: "user", content: user }]; finalText = ""; let ok = true;
+    for (let turn = 0; turn < 4; turn++) {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: 1800, system: sys, tools, messages }),
+      });
+      if (!r.ok) { ok = false; break; }
+      const out = await r.json();
+      for (const c of out.content || []) {
+        if (c.type === "web_search_tool_result" && Array.isArray(c.content)) for (const x of c.content) if (x?.url) seen.add(String(x.url));
+        if (c.type === "text") { finalText += c.text; for (const ct of c.citations || []) if (ct?.url) seen.add(String(ct.url)); }
+      }
+      if (out.stop_reason === "pause_turn") { messages = [{ role: "user", content: user }, { role: "assistant", content: out.content }]; continue; }
+      break;
+    }
+    if (ok && finalText) break;
+  }
+  const m = finalText.match(/\{[\s\S]*\}/);
+  let j: any = {};
+  try { j = m ? JSON.parse(m[0]) : {}; } catch { j = {}; }
+  const host = (u: string) => { try { return new URL(u).host.replace(/^www\./, ""); } catch { return ""; } };
+  const seenHosts = new Set([...seen].map(host));
+  const docs = (Array.isArray(j.docs) ? j.docs : []).filter((d: any) => typeof d?.url === "string" && /^https:\/\//.test(d.url) && (seen.has(d.url) || seenHosts.has(host(d.url)))).slice(0, 5)
+    .map((d: any) => ({ title: String(d.title || "").slice(0, 160), url: d.url, kind: String(d.kind || "other"), lang: String(d.lang || ""), pdf: !!d.pdf || /\.pdf($|\?)/i.test(d.url), host: host(d.url) }));
+  return json({ docs, data: j.data && typeof j.data === "object" ? j.data : {}, items: [] });
+}
+
+// Il PDF lo scarica l'app direttamente dal sito del costruttore (CapacitorHttp) e lo salva solo sul telefono.
