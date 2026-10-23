@@ -51,7 +51,7 @@ const T_ITEMS = {
 const T_ANSWER = {
   name: "rispondi",
   description: "Answer the user's question or request in plain text. For anything about THIS boat use only the data in the context. For general nautical, technical, maintenance or regulatory questions use your own knowledge (practical, and tell to check the manual/official source when it matters). Set needsWeb=true when a correct answer needs current or specific information: anything about a specific engine/boat/product make and model (oils, quantities, procedures, intervals, part numbers, technology), prices, recent rules, opening hours, contacts. Generic how-to questions with no specific model can be answered without web. When needsWeb, text may be a short draft.",
-  input_schema: { type: "object", properties: { text: { type: "string" }, needsWeb: { type: "boolean" }, webQuery: { type: "string", description: "best web search query, if needsWeb" } }, required: ["text"] },
+  input_schema: { type: "object", properties: { text: { type: "string" }, needsWeb: { type: "boolean" }, webQuery: { type: "string", description: "best web search query, if needsWeb" }, action: { type: "string", enum: ["manuals"], description: "manuals = the user wants the official manual, the manufacturer's maintenance schedule/intervals or to load/update the maintenance plan of an engine: the app opens its manuals tool, which searches official sites and compares with the plan" }, engineId: { type: "string", description: "id from ctx.engines for action manuals" } }, required: ["text"] },
 };
 
 function base(ctx: Record<string, unknown>) {
@@ -73,6 +73,8 @@ function system(mode: string, ctx: Record<string, unknown>, extra: Record<string
   switch (mode) {
     case "auto": return `${b}
 The user writes or dictates a sentence. If it describes something done, bought, planned, broken, refuelled or expiring, call proponi_righe. If it is a question or a request for information/advice, call rispondi: about this boat answer from the data (say clearly when the data is not in the app); general boating questions (oils, mixtures, procedures, rules, how-to, products) answer with your knowledge, and set needsWeb when up-to-date or specific web information is needed.
+If the user asks for an engine manual or the manufacturer's maintenance plan/intervals (find, load, set up, update), call rispondi with action "manuals" and engineId.
+Never answer that you are searching or will do something later: give the real answer now, or say clearly what you cannot do.
 ${RULES_ITEMS}`;
     case "receipt": return `${b}
 The image is a receipt, invoice or delivery note. Read it and call proponi_righe with ONE expense item (title = short description of what was bought, amount = total, date, category from ctx.expenseCats, supplierId if the shop matches ctx.suppliers else supplierName). If it is clearly a fuel receipt also add a fuel item with liters and price. If you cannot read it, return items=[] and a question. ${RULES_ITEMS}`;
@@ -155,10 +157,16 @@ Deno.serve(async (req) => {
   if (!r.ok) return json({ error: "ai_" + r.status }, 502);
   const out = await r.json();
   const use = (out.content || []).find((c: any) => c.type === "tool_use");
+  if (use?.name === "rispondi" && use.input?.action === "manuals") {
+    const ids = ((ctx.engines as any[]) || []).map((e: any) => String(e.id));
+    const eid = ids.includes(String(use.input?.engineId)) ? String(use.input.engineId) : (ids[0] || "");
+    return json({ text: "", items: [], action: "manuals", engineId: eid });
+  }
   if (use?.name === "rispondi") {
     if (use.input?.needsWeb && (mode === "auto" || mode === "doc")) {
       const w = await webAnswer(key, text, String(use.input?.webQuery || ""), ctx);
       if (w) return json({ text: w, items: [], web: true });
+      return json({ text: String(use.input?.text || "").slice(0, 6000) + "\n\n(" + (ctx.lang === "it" || !ctx.lang ? "Ricerca sul web non riuscita: riprova tra poco." : "Web search failed: please try again shortly.") + ")", items: [] });
     }
     return json({ text: String(use.input?.text || "").slice(0, 6000), items: [] });
   }
