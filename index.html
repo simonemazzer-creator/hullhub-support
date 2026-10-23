@@ -1,21 +1,226 @@
 <!doctype html>
 <html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HullHub – Assistenza</title>
-<style>body{font:16px/1.55 -apple-system,system-ui,sans-serif;max-width:760px;margin:0 auto;padding:24px 16px;color:#1b2333;background:#fff}h1{font-size:26px}h2{font-size:18px;margin-top:28px}a{color:#13325e}.b{font-weight:800;font-style:italic}.h{color:#13325e}.u{color:#d81f26}@media(prefers-color-scheme:dark){body{background:#0f141c;color:#e6e9ef}a,.h{color:#8fb4ff}}</style></head>
+<title>HullHub – Guida e assistenza</title>
+<meta name="description" content="Guida all'uso di HullHub, l'app per gestire la barca: primi passi, lavori, tagliandi, scadenze, costi, equipaggio, abbonamenti e domande frequenti.">
+<style>
+:root{--ink:#1b2333;--mut:#5b6678;--bg:#fff;--card:#f4f6f9;--line:#e1e6ee;--a:#13325e;--r:#d81f26}
+@media(prefers-color-scheme:dark){:root{--ink:#e6e9ef;--mut:#a3adbd;--bg:#0f141c;--card:#171e29;--line:#263040;--a:#8fb4ff}}
+*{box-sizing:border-box}
+body{font:16px/1.6 -apple-system,system-ui,"Segoe UI",sans-serif;max-width:800px;margin:0 auto;padding:24px 16px 60px;color:var(--ink);background:var(--bg)}
+h1{font-size:28px;margin:0 0 6px}h2{font-size:21px;margin:38px 0 10px;padding-top:8px;border-top:1px solid var(--line)}h3{font-size:17px;margin:22px 0 6px}
+a{color:var(--a)}.b{font-weight:800;font-style:italic}.h{color:var(--a)}.u{color:var(--r)}
+.lead{color:var(--mut);margin:0 0 14px}
+.lang{display:inline-block;margin:4px 0 18px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-size:14px}
+nav.toc{background:var(--card);border-radius:12px;padding:12px 16px}nav.toc ol{margin:6px 0 0;padding-left:20px;columns:2;column-gap:28px}nav.toc li{margin:2px 0}
+@media(max-width:560px){nav.toc ol{columns:1}}
+ol.steps li,ul li{margin:4px 0}
+.path{font-weight:600}
+.tip{background:var(--card);border-left:4px solid var(--a);border-radius:8px;padding:10px 14px;margin:12px 0}
+details{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0}details summary{cursor:pointer;font-weight:600}details p{margin:8px 0 2px}
+footer{margin-top:40px;color:var(--mut);font-size:14px}
+</style></head>
 <body>
-<h1><span class="b h">HULL</span><span class="b u">HUB</span> – Your boat manager</h1>
-<p>Gestione della barca per armatori, comandanti, equipaggio e fornitori: lavori, manutenzioni, ricambi, costi, scadenze e diario di bordo.</p>
-<h2>Assistenza</h2>
+<h1><span class="b h">HULL</span><span class="b u">HUB</span> – Guida e assistenza</h1>
+<p class="lead">L’app per gestire la barca: lavori e cantiere, tagliandi, scadenze, dotazioni, costi e diario di bordo, condivisa con equipaggio, famiglia e fornitori.</p>
+<a class="lang" href="#en">English version ↓</a>
+
+<nav class="toc"><b>Indice</b><ol>
+<li><a href="#primi-passi">Primi passi</a></li>
+<li><a href="#cruscotto">Il cruscotto</a></li>
+<li><a href="#lavori">Lavori e cantiere</a></li>
+<li><a href="#motori">Motori e tagliandi</a></li>
+<li><a href="#bordo">Ricambi, dotazioni, carburante e diario</a></li>
+<li><a href="#scadenze">Scadenze e documenti</a></li>
+<li><a href="#zona">Zona di navigazione</a></li>
+<li><a href="#costi">Costi, spese e budget</a></li>
+<li><a href="#condivisione">Equipaggio e barca condivisa</a></li>
+<li><a href="#fornitori">Fornitori</a></li>
+<li><a href="#export">PDF, report ed Excel</a></li>
+<li><a href="#personalizza">Personalizzare l’app</a></li>
+<li><a href="#abbonamenti">Abbonamenti e codici</a></li>
+<li><a href="#faq">Domande frequenti</a></li>
+<li><a href="#assistenza">Assistenza</a></li>
+</ol></nav>
+
+<h2 id="primi-passi">1. Primi passi</h2>
+<ol class="steps">
+<li>Scarica HullHub dall’App Store e aprila.</li>
+<li>Al primo avvio scegli <b>«Crea la mia barca»</b> oppure <b>«Guarda la barca di esempio»</b> per provare tutto con dati finti.</li>
+<li>La <b>procedura guidata</b> ti chiede una cosa per schermata: nome e dati della barca, paese di navigazione, propulsione e motori con le ore attuali, piano di manutenzione pronto, documenti principali, chi c’è a bordo, unità di misura e valuta. Puoi saltare un passaggio e completarlo dopo.</li>
+<li>Per aggiungere la tua barca serve un piano (il primo mese è gratis, vedi <a href="#abbonamenti">Abbonamenti</a>).</li>
+</ol>
+<div class="tip">Accanto ai campi meno ovvi trovi il pallino <b>ⓘ</b>: toccalo per una spiegazione breve con un esempio.</div>
+
+<h2 id="cruscotto">2. Il cruscotto</h2>
+<p>È la prima schermata: foto e dati della barca, ore dei motori, stato generale e avvisi. I pulsanti rapidi servono per le cose di tutti i giorni:</p>
+<ul>
+<li><b>Lavoro</b>: aggiungi un lavoro da fare.</li>
+<li><b>Pieno</b>: registra un rifornimento (litri, prezzo, ore motore). Le ore aggiornano anche il contaore.</li>
+<li><b>Uscita</b>: registra un’uscita nel diario di bordo.</li>
+<li><b>Segnala</b>: segnala un guasto o qualcosa da controllare, con foto.</li>
+<li><b>Spesa</b>: aggiungi una spesa.</li>
+</ul>
+<p>Il riquadro <b>«Prepara la tua barca»</b> ti ricorda cosa manca per avere tutto in ordine. <b>Panoramica e riepilogo</b> mostra la situazione in una pagina da leggere o condividere.</p>
+
+<h2 id="lavori">3. Lavori e cantiere</h2>
+<ol class="steps">
+<li>Vai su <span class="path">Lavori › + Nuovo</span>.</li>
+<li>Scegli il <b>tipo di lavoro</b>: manutenzione periodica, riparazione/avaria, miglioria o installazione, pulizia e cura, controllo, altro. Il modulo mostra solo i campi che servono.</li>
+<li>Scegli <b>chi lo fa</b>: tu, l’equipaggio (con la persona incaricata) oppure un fornitore o cantiere (con preventivo, acconto e fasi).</li>
+<li>Aggiungi i <b>passaggi</b> con «+ Aggiungi passaggio», uno per riga. Puoi riordinarli e dare un peso a ciascuno: l’avanzamento si calcola da solo spuntandoli.</li>
+<li>Con <b>«+ Aggiungi dettagli»</b> metti zona della barca, foto obbligatoria per chiudere, ricambi da usare, ripetizione periodica.</li>
+</ol>
+<p>Lo stato del lavoro (da fare, in corso, dal fornitore, fatto) si cambia dalla scheda del lavoro. Se sbagli, c’è <b>Annulla</b>. Per i lavori lunghi in cantiere usa <span class="path">Altro › Cantiere</span> (contratto, verbali di consegna e riconsegna, varo).</p>
+
+<h2 id="motori">4. Motori e tagliandi</h2>
+<ul>
+<li>In <span class="path">Bordo › Motori e trasmissioni</span> trovi ogni motore con le sue ore e le <b>manutenzioni periodiche</b> (es. olio e filtri ogni 250 h o 12 mesi).</li>
+<li>Per ogni tagliando vedi quando è stato fatto l’ultimo e quando scade il prossimo. Tocca <b>Fatto</b> quando lo fai, oppure <b>Pianifica</b> per creare il lavoro.</li>
+<li>Le ore si aggiornano da <span class="path">Cruscotto › Ore motore</span>, da un rifornimento o da un’uscita.</li>
+<li>Per i <b>fuoribordo 2 tempi</b> l’app conosce il tagliando specifico e tiene la scorta di olio 2T: a ogni rifornimento calcola l’olio usato e avvisa quando sta finendo.</li>
+</ul>
+
+<h2 id="bordo">5. Ricambi, dotazioni, carburante e diario</h2>
+<ul>
+<li><b>Ricambi</b> (<span class="path">Bordo › Ricambi</span>): quantità, scorta minima, posizione a bordo. Sotto il minimo l’app ti avvisa.</li>
+<li><b>Dotazioni</b> (<span class="path">Bordo › Dotazioni</span>): dotazioni di sicurezza con scadenze, secondo il paese e la distanza dalla costa. Se metti il prezzo diventa anche una spesa.</li>
+<li><b>Carburante</b>: tutti i rifornimenti con litri, prezzo e porto.</li>
+<li><b>Diario di bordo</b>: uscite con partenza, arrivo, miglia, ore, persone e meteo.</li>
+</ul>
+
+<h2 id="scadenze">6. Scadenze e documenti</h2>
+<ul>
+<li><span class="path">Altro › Scadenze</span> mostra i <b>documenti obbligatori a bordo</b> per il tuo tipo di unità e paese, con quelli che mancano o sono scaduti. Tocca <b>Aggiungi</b> per inserire la scadenza e allegare la foto o il PDF del documento.</li>
+<li>Anche i documenti dell’equipaggio (patenti, certificati) hanno scadenza e allegato.</li>
+<li><span class="path">Altro › Documenti e fatture</span> raccoglie tutti i file: fatture, pianta, certificati, manuali. Da lì li apri e li condividi, utile durante i controlli in banchina.</li>
+</ul>
+
+<h2 id="zona">7. Zona di navigazione</h2>
+<p><span class="path">Altro › Zona di navigazione</span> contiene i numeri di soccorso, le regole del paese in cui navighi e i collegamenti alle fonti ufficiali: avvisi ai naviganti, ordinanze, meteo marino, contatti dei porti. Puoi anche scrivere le tue <b>note del porto</b> (canale VHF, fondali, ormeggio, servizi).</p>
+<p>Paesi con regole dedicate: Italia, Spagna, Francia, Croazia, Grecia, Malta, Germania, Paesi Bassi, Regno Unito e USA. Per gli altri valgono le regole internazionali e il 112.</p>
+<div class="tip">Le regole sono un aiuto: per gli obblighi di legge fa sempre fede la fonte ufficiale indicata.</div>
+
+<h2 id="costi">8. Costi, spese e budget</h2>
+<ul>
+<li>In <span class="path">Costi › + Spesa</span> scegli <b>Spesa fissa</b> (posto barca, assicurazione, equipaggio, tasse…) oppure <b>Spesa normale</b> (accessori, ricambi, manutenzione, carburante, cambusa…).</li>
+<li>Se una voce non c’è, usa <b>«+ Nuova voce…»</b>: resta nell’elenco per le volte dopo.</li>
+<li>Per un accessorio puoi spuntare <b>«Aggiungi anche a bordo»</b>: diventa anche una dotazione.</li>
+<li>Il riquadro dei costi mostra totale, fisse e normali, <b>budget dell’anno</b>, costo per ora di moto e per miglio.</li>
+<li><span class="path">Altro › Cassa e ricevute</span> serve per anticipi e spese pagate dall’equipaggio, con ricevuta.</li>
+</ul>
+
+<h2 id="condivisione">9. Equipaggio e barca condivisa</h2>
+<ol class="steps">
+<li>L’armatore va in <span class="path">Altro › Account e condivisione › Condividi questa barca</span>.</li>
+<li>Poi <span class="path">Altro › Equipaggio</span>, sceglie la persona e tocca <b>Invita sul suo telefono</b> (oppure <span class="path">Account e condivisione › Invita una persona</span>). Il codice si manda su WhatsApp con le istruzioni già scritte.</li>
+<li>L’altra persona scarica HullHub gratis, va in <span class="path">Altro › Account e condivisione › Ho un codice invito</span>, crea il suo account e inserisce il codice.</li>
+</ol>
+<p>Ognuno vede solo quello che il suo ruolo permette: per esempio il marinaio vede i suoi compiti, i lavori e le scadenze, ma non prezzi e budget. Le modifiche arrivano sugli altri telefoni in pochi secondi, anche dopo essere stati senza rete.</p>
+<div class="tip"><b>Chi entra con un invito non paga</b>: l’abbonamento lo fa solo l’armatore.</div>
+
+<h2 id="fornitori">10. Fornitori</h2>
+<ul>
+<li>In <span class="path">Altro › Fornitori</span> tieni i dati di cantieri, officine e artigiani.</li>
+<li>Con <b>Invita sull’app</b> il fornitore scarica HullHub gratis, inserisce il codice e aggiorna dal suo telefono preventivo, avanzamento con foto, disegni da approvare e fattura.</li>
+<li>Le segnalazioni di non conformità partono come report e il fornitore risponde nell’app.</li>
+</ul>
+
+<h2 id="export">11. PDF, report ed Excel</h2>
+<ul>
+<li><span class="path">Altro › Esporta (PDF ed Excel)</span>: scegli la tabella (costi, lavori, tagliandi, ricambi, dotazioni, scadenze, diario…), il periodo e tocca <b>Crea il PDF</b> o <b>File Excel (.csv)</b>. Si apre la condivisione dell’iPhone: WhatsApp, Mail, Stampa, File.</li>
+<li><b>Fascicolo della barca</b>: un unico PDF con dati, motori, tagliandi, lavori, dotazioni e scadenze. Utile per vendita, perizia o assicurazione.</li>
+<li><span class="path">Altro › Report e programmi</span>: il programma lavori o i lavori eseguiti, per tutti o per un solo fornitore, con <b>Crea il PDF</b>.</li>
+</ul>
+
+<h2 id="personalizza">12. Personalizzare l’app</h2>
+<ul>
+<li><span class="path">Altro › Personalizza</span>: aggiungi campi tuoi ai moduli (testo, numero, data, sì/no, elenco) e nascondi quelli che non ti servono.</li>
+<li>In quasi tutti gli elenchi a scelta c’è <b>«+ Nuovo…»</b> per aggiungere una voce al volo.</li>
+<li>Unità di misura (metri o piedi, litri o galloni) e valuta si cambiano dalle impostazioni della barca.</li>
+</ul>
+
+<h2 id="abbonamenti">13. Abbonamenti e codici</h2>
+<ul>
+<li><b>Base</b>: tutta la gestione di una barca, fornitori, cantiere, fatture e scadenze, condivisione con un familiare.</li>
+<li><b>Pro</b>: tutto il Base, più equipaggio con ruoli e permessi e fornitori collegati con la loro app.</li>
+<li><b>Flotta</b>: tutto il Pro, più barche con confronto. Per gestori e comandanti.</li>
+</ul>
+<p>Ogni piano è mensile o annuale, con <b>il primo mese gratis</b> per i nuovi abbonati. Il pagamento passa dal tuo Apple ID e si rinnova da solo, a meno che non lo disdici almeno 24 ore prima della scadenza.</p>
+<h3>Usare un codice promozionale</h3>
+<ol class="steps">
+<li>Tocca il link che hai ricevuto dall’iPhone, oppure apri l’<b>App Store</b>, tocca la tua foto in alto a destra e scegli <b>«Riscatta carta regalo o codice»</b>.</li>
+<li>Inserisci il codice e conferma: vedi subito l’offerta (es. mesi gratis).</li>
+<li>Apri HullHub: il piano risulta attivo. Se non lo vedi, nella schermata dei piani tocca <b>Ripristina acquisti</b>.</li>
+</ol>
+
+<h2 id="faq">Domande frequenti</h2>
+<details><summary>Perché vedo una barca di esempio?</summary><p>Serve per provare l’app senza inserire niente. Quando aggiungi la tua barca puoi toglierle con <b>«Togli le barche di esempio»</b> in <span class="path">Altro › Le mie barche</span>.</p></details>
+<details><summary>Il marinaio o il comandante devono pagare?</summary><p>No. Paga solo l’armatore. Chi entra con un codice invito usa la barca condivisa gratis.</p></details>
+<details><summary>Cosa succede alla fine del mese gratis o dei mesi gratis di un codice?</summary><p>L’abbonamento continua al prezzo del piano scelto. Apple ti avvisa prima. Se non vuoi continuare, disdici almeno 24 ore prima della scadenza.</p></details>
+<details><summary>Come disdico l’abbonamento?</summary><p>Impostazioni dell’iPhone › il tuo nome › Abbonamenti › HullHub › Annulla abbonamento.</p></details>
+<details><summary>Il codice promozionale non funziona.</summary><p>Di solito vale solo per chi non è mai stato abbonato, oppure è scaduto o ha raggiunto il numero massimo di utilizzi. Controlla di usarlo con l’Apple ID giusto. Se il problema resta scrivici.</p></details>
+<details><summary>Ho cambiato iPhone: perdo i dati?</summary><p>Se la barca è condivisa (online), entri con il tuo account e ritrovi tutto. Se usi l’app solo sul telefono, fai prima il backup dell’iPhone e ripristinalo sul nuovo, oppure condividi la barca per averla anche online.</p></details>
+<details><summary>Funziona senza internet?</summary><p>Sì. Puoi lavorare anche in mare senza rete: quando torna la connessione le modifiche si sincronizzano con gli altri telefoni.</p></details>
+<details><summary>Posso gestire più barche?</summary><p>Sì, con il piano Flotta. Ogni barca ha la sua gestione separata, e le trovi in <span class="path">Altro › Le mie barche</span>.</p></details>
+<details><summary>Ho un fuoribordo 2 tempi: come imposto la miscela?</summary><p>Nella scheda del motore scegli 2 tempi e indica se hai il miscelatore automatico o fai la miscela a mano, con la percentuale (es. 2% = 50:1). L’app calcola l’olio a ogni rifornimento.</p></details>
+<details><summary>Come metto la barca a vela o un gommone?</summary><p>Nella procedura guidata scegli il tipo di propulsione: entrobordo, fuoribordo, piede poppiero, IPS, idrogetto, elettrico, vela… L’app prepara il piano di manutenzione adatto.</p></details>
+<details><summary>Le regole sulle dotazioni sono aggiornate?</summary><p>Sono controllate sulle fonti ufficiali e aggiornate con le nuove versioni dell’app. Per gli obblighi di legge fa sempre fede la fonte ufficiale collegata nell’app.</p></details>
+<details><summary>Come mando il programma lavori al cantiere?</summary><p><span class="path">Altro › Report e programmi</span>, scegli il fornitore e tocca Crea il PDF, poi condividilo su WhatsApp o Mail.</p></details>
+<details><summary>Posso annullare una modifica fatta per sbaglio?</summary><p>Sì, per i cambi di stato dei lavori e dei tagliandi compare <b>Annulla</b> per qualche secondo.</p></details>
+<details><summary>Come elimino l’account?</summary><p><span class="path">Altro › Account e condivisione › Elimina l’account</span>. Ricordati di disdire anche l’abbonamento dalle impostazioni dell’iPhone.</p></details>
+<details><summary>Esiste per Android?</summary><p>Per ora HullHub è solo per iPhone e iPad. La versione Android è in preparazione.</p></details>
+
+<h2 id="assistenza">Assistenza</h2>
 <p>Per domande, problemi o idee scrivi a <a href="mailto:simone.mazzer@yahoo.it">simone.mazzer@yahoo.it</a>. Rispondiamo di solito entro 2 giorni lavorativi.</p>
-<h2>Domande frequenti</h2>
-<p><b>Come condivido la barca con l’equipaggio?</b> Altro › Account e condivisione › Condividi questa barca, poi Equipaggio › persona › Invita sul suo telefono.</p>
-<p><b>Come collego un fornitore?</b> Fornitori › scheda del fornitore › Invita sull’app: il fornitore scarica HullHub gratis e inserisce il codice.</p>
-<p><b>Come disdico l’abbonamento?</b> Impostazioni dell’iPhone › il tuo nome › Abbonamenti › HullHub.</p>
-<p><b>Come elimino l’account?</b> Altro › Account e condivisione › Elimina l’account.</p>
 <p><a href="privacy.html">Informativa sulla privacy</a> · <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/">Condizioni d’uso (EULA Apple)</a></p>
-<hr>
-<h2>Support (English)</h2>
-<p>HullHub helps owners, captains, crew and suppliers manage a boat: jobs, maintenance, spares, costs, deadlines and logbook. For questions write to <a href="mailto:simone.mazzer@yahoo.it">simone.mazzer@yahoo.it</a>.</p>
-<p><b>Share the boat:</b> More › Account and sharing › Share this boat. <b>Cancel a subscription:</b> iPhone Settings › your name › Subscriptions. <b>Delete your account:</b> More › Account and sharing › Delete account.</p>
+
+<hr id="en" style="margin-top:50px">
+<h1><span class="b h">HULL</span><span class="b u">HUB</span> – Guide and support</h1>
+<p class="lead">The app to manage your boat: jobs and yard work, engine services, deadlines, safety equipment, costs and logbook, shared with crew, family and suppliers.</p>
+
+<h2>Getting started</h2>
+<ol class="steps">
+<li>Download HullHub from the App Store and open it.</li>
+<li>Choose <b>“Create my boat”</b>, or <b>“See the sample boat”</b> to try everything with sample data.</li>
+<li>The <b>setup wizard</b> asks one thing per screen: boat details, sailing country, propulsion and engines with current hours, ready-made maintenance plan, main documents, people on board, units and currency. You can skip a step and finish it later.</li>
+<li>Adding your own boat requires a plan (the first month is free).</li>
+</ol>
+<div class="tip">Tap the <b>ⓘ</b> next to a field for a short explanation with an example.</div>
+
+<h2>Main features</h2>
+<ul>
+<li><b>Jobs</b> (<span class="path">Jobs › + New</span>): choose the job type, who does it (you, crew, supplier or yard), add steps one per line; progress updates as you tick them.</li>
+<li><b>Engines and services</b> (<span class="path">On board › Engines &amp; drives</span>): services by engine hours or months, with <b>Done</b> and <b>Schedule</b>. 2-stroke outboards track the 2T oil stock.</li>
+<li><b>Spares, safety equipment, fuel and logbook</b> in the <b>On board</b> tab.</li>
+<li><b>Deadlines and documents</b> (<span class="path">More › Deadlines</span>): mandatory documents for your boat and country, with expiry dates and attachments.</li>
+<li><b>Navigation area</b> (<span class="path">More › Navigation area</span>): emergency numbers, country rules, links to official notices, marine weather and your own port notes.</li>
+<li><b>Costs</b> (<span class="path">Costs › + Expense</span>): fixed or normal expenses, custom categories, yearly budget, cost per engine hour.</li>
+<li><b>Export</b> (<span class="path">More › Export (PDF and Excel)</span>): PDF or CSV of any table, plus the full <b>boat file</b> PDF. <span class="path">More › Reports &amp; schedules</span> creates the work schedule PDF for a yard or supplier.</li>
+<li><b>Customise</b> (<span class="path">More › Customise</span>): add your own fields and hide those you don’t need.</li>
+</ul>
+
+<h2>Crew and shared boat</h2>
+<ol class="steps">
+<li>The owner goes to <span class="path">More › Account and sharing › Share this boat</span>.</li>
+<li>Then <span class="path">More › Crew</span> › person › <b>Invite to their phone</b> (or <span class="path">Account and sharing › Invite someone</span>) and sends the code.</li>
+<li>The other person downloads HullHub for free, goes to <span class="path">More › Account and sharing › I have an invite code</span>, creates an account and enters the code.</li>
+</ol>
+<div class="tip"><b>Invited people don’t pay</b>: only the owner needs a subscription. Each person only sees what their role allows (for example, crew don’t see prices or budget).</div>
+
+<h2>Subscriptions and codes</h2>
+<p><b>Base</b> (one boat, suppliers, deadlines, sharing with a family member), <b>Pro</b> (plus crew with roles and suppliers connected through their app), <b>Fleet</b> (plus multiple boats). Monthly or yearly, with <b>the first month free</b> for new subscribers. Payment is charged to your Apple ID and renews automatically unless cancelled at least 24 hours before the end of the period.</p>
+<p><b>To redeem a promo code:</b> tap the link you received on your iPhone, or open the App Store › your photo › <b>Redeem Gift Card or Code</b>. Then open HullHub; if the plan isn’t active yet, tap <b>Restore purchases</b> on the plans screen.</p>
+
+<h2>FAQ</h2>
+<details><summary>Do crew members have to pay?</summary><p>No. Only the owner pays; anyone joining with an invite code uses the shared boat for free.</p></details>
+<details><summary>How do I cancel my subscription?</summary><p>iPhone Settings › your name › Subscriptions › HullHub › Cancel Subscription.</p></details>
+<details><summary>Does it work offline?</summary><p>Yes. Changes sync with the other phones when the connection is back.</p></details>
+<details><summary>Can I manage more than one boat?</summary><p>Yes, with the Fleet plan; each boat is managed separately in <span class="path">More › My boats</span>.</p></details>
+<details><summary>How do I delete my account?</summary><p><span class="path">More › Account and sharing › Delete account</span>. Remember to also cancel the subscription in your iPhone settings.</p></details>
+<details><summary>Is there an Android version?</summary><p>Not yet: HullHub is currently for iPhone and iPad. Android is in the works.</p></details>
+
+<h2>Support</h2>
+<p>For questions, problems or ideas write to <a href="mailto:simone.mazzer@yahoo.it">simone.mazzer@yahoo.it</a>. We usually reply within 2 working days.</p>
 <p><a href="privacy.html#en">Privacy policy</a> · <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/">Terms of Use (Apple EULA)</a></p>
+<footer>HullHub · Simone Mazzer</footer>
 </body></html>
