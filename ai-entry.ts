@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
   if (use?.name === "rispondi") {
     if (use.input?.needsWeb && (mode === "auto" || mode === "doc")) {
       const w = await webAnswer(key, text, String(use.input?.webQuery || ""), ctx);
-      if (w) return json({ text: w, items: [], web: true });
+      if (w && w.length > 120) return json({ text: w, items: [], web: true });
       return json({ text: String(use.input?.text || "").slice(0, 6000) + "\n\n(" + (ctx.lang === "it" || !ctx.lang ? "Ricerca sul web non riuscita: riprova tra poco." : "Web search failed: please try again shortly.") + ")", items: [] });
     }
     return json({ text: String(use.input?.text || "").slice(0, 6000), items: [] });
@@ -209,7 +209,7 @@ async function webAnswer(key: string, question: string, query: string, ctx: Reco
   const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
   let messages: any[] = [{ role: "user", content: user }];
   let txt = "";
-  for (let turn = 0; turn < 3; turn++) {
+  for (let turn = 0; turn < 4; turn++) {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -217,8 +217,8 @@ async function webAnswer(key: string, question: string, query: string, ctx: Reco
     });
     if (!r.ok) return "";
     const out = await r.json();
-    txt = (out.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
-    if (out.stop_reason === "pause_turn") { messages = [{ role: "user", content: user }, { role: "assistant", content: out.content }]; continue; }
+    txt += (out.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
+    if (out.stop_reason === "pause_turn") { messages = [{ role: "user", content: user }, { role: "assistant", content: [...(messages[1]?.content || []), ...out.content] }]; continue; }
     break;
   }
   return txt.replace(/\*\*/g, "").trim().slice(0, 6000);
