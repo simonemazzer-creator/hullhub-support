@@ -50,8 +50,8 @@ const T_ITEMS = {
 };
 const T_ANSWER = {
   name: "rispondi",
-  description: "Answer the user's question or request in plain text, using only the boat data in the context.",
-  input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+  description: "Answer the user's question or request in plain text. For anything about THIS boat use only the data in the context. For general nautical, technical, maintenance or regulatory questions use your own knowledge (practical, and tell to check the manual/official source when it matters). Set needsWeb=true only when a correct answer needs current or very specific information from the web (prices, recent rules, a product spec or part number you are not sure of, opening hours, contacts); then text may be a short draft.",
+  input_schema: { type: "object", properties: { text: { type: "string" }, needsWeb: { type: "boolean" }, webQuery: { type: "string", description: "best web search query, if needsWeb" } }, required: ["text"] },
 };
 
 function base(ctx: Record<string, unknown>) {
@@ -72,7 +72,7 @@ function system(mode: string, ctx: Record<string, unknown>, extra: Record<string
   const b = base(ctx);
   switch (mode) {
     case "auto": return `${b}
-The user writes or dictates a sentence. If it describes something done, bought, planned, broken, refuelled or expiring, call proponi_righe. If it is a question about the boat or a request for information/advice, call rispondi and answer from the data (say clearly when the data is not in the app).
+The user writes or dictates a sentence. If it describes something done, bought, planned, broken, refuelled or expiring, call proponi_righe. If it is a question or a request for information/advice, call rispondi: about this boat answer from the data (say clearly when the data is not in the app); general boating questions (oils, mixtures, procedures, rules, how-to, products) answer with your knowledge, and set needsWeb when up-to-date or specific web information is needed.
 ${RULES_ITEMS}`;
     case "receipt": return `${b}
 The image is a receipt, invoice or delivery note. Read it and call proponi_righe with ONE expense item (title = short description of what was bought, amount = total, date, category from ctx.expenseCats, supplierId if the shop matches ctx.suppliers else supplierName). If it is clearly a fuel receipt also add a fuel item with liters and price. If you cannot read it, return items=[] and a question. ${RULES_ITEMS}`;
@@ -154,11 +154,40 @@ Deno.serve(async (req) => {
   if (!r.ok) return json({ error: "ai_" + r.status }, 502);
   const out = await r.json();
   const use = (out.content || []).find((c: any) => c.type === "tool_use");
-  if (use?.name === "rispondi") return json({ text: String(use.input?.text || "").slice(0, 6000), items: [] });
+  if (use?.name === "rispondi") {
+    if (use.input?.needsWeb && (mode === "auto" || mode === "doc")) {
+      const w = await webAnswer(key, text, String(use.input?.webQuery || ""), ctx);
+      if (w) return json({ text: w, items: [], web: true });
+    }
+    return json({ text: String(use.input?.text || "").slice(0, 6000), items: [] });
+  }
   const items = Array.isArray(use?.input?.items) ? use.input.items.filter((x: any) => TYPES.includes(x?.type)).slice(0, 6) : [];
   const dk = ["fattura", "preventivo", "certificato", "manuale", "foto", "altro"].includes(use?.input?.docKind) ? use.input.docKind : "altro";
   return json({ items, question: use?.input?.question || "", docTitle: String(use?.input?.docTitle || "").slice(0, 120), docKind: dk });
 });
+
+// ---- Risposta con ricerca web (solo quando serve) ----
+async function webAnswer(key: string, question: string, query: string, ctx: Record<string, unknown>) {
+  const boat = { engines: ctx.engines, boat: (ctx as any).boat, lang: ctx.lang, today: ctx.today };
+  const sys = `You are the assistant inside HullHub, a boat-management app. Today is ${ctx.today}. Answer the user's boating question using web search (max 3 searches), preferring official and manufacturer sources. Write in the language with code "${ctx.lang || "it"}", concise and practical, plain text with short paragraphs or "- " bullets, no markdown headings, no tables, no bold. Do not invent numbers: if sources disagree say so. At the end add a line "Fonti:" (translated) followed by up to 3 lines "- site name: https://url" of the pages you actually used. Boat context (may help): ${JSON.stringify(boat)}`;
+  const user = question + (query ? `\n(search hint: ${query})` : "");
+  const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
+  let messages: any[] = [{ role: "user", content: user }];
+  let txt = "";
+  for (let turn = 0; turn < 3; turn++) {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 1400, system: sys, tools, messages }),
+    });
+    if (!r.ok) return "";
+    const out = await r.json();
+    txt = (out.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
+    if (out.stop_reason === "pause_turn") { messages = [{ role: "user", content: user }, { role: "assistant", content: out.content }]; continue; }
+    break;
+  }
+  return txt.replace(/\*\*/g, "").trim().slice(0, 6000);
+}
 
 // ---- Manuali ufficiali e dati di manutenzione (ricerca web) ----
 async function manuals(key: string, extra: Record<string, string>, ctx: Record<string, unknown>) {
