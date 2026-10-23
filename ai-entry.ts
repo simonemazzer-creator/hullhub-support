@@ -51,7 +51,7 @@ const T_ITEMS = {
 const T_ANSWER = {
   name: "rispondi",
   description: "Answer the user's question or request in plain text. For anything about THIS boat use only the data in the context. For general nautical, technical, maintenance or regulatory questions use your own knowledge (practical, and tell to check the manual/official source when it matters). Set needsWeb=true when a correct answer needs current or specific information: anything about a specific engine/boat/product make and model (oils, quantities, procedures, intervals, part numbers, technology), prices, recent rules, opening hours, contacts. Generic how-to questions with no specific model can be answered without web. When needsWeb, text may be a short draft.",
-  input_schema: { type: "object", properties: { text: { type: "string" }, needsWeb: { type: "boolean" }, webQuery: { type: "string", description: "best web search query, if needsWeb" }, action: { type: "string", enum: ["manuals"], description: "manuals = the user wants the official manual, the manufacturer's maintenance schedule/intervals or to load/update the maintenance plan of an engine: the app opens its manuals tool, which searches official sites and compares with the plan" }, engineId: { type: "string", description: "id from ctx.engines for action manuals" } }, required: ["text"] },
+  input_schema: { type: "object", properties: { text: { type: "string" }, needsWeb: { type: "boolean" }, webQuery: { type: "string", description: "best web search query, if needsWeb" }, action: { type: "string", enum: ["manuals"], description: "manuals = the user wants the official manual, the manufacturer's maintenance schedule/intervals or to load/update the maintenance plan of an engine: the app opens its manuals tool, which searches official sites and compares with the plan" }, engineId: { type: "string", description: "id from ctx.engines for action manuals, or the engine an attached manual refers to" }, services: { type: "array", maxItems: 30, description: "Only when an attached document is an engine manual or maintenance schedule: the manufacturer's periodic maintenance items read in it", items: { type: "object", properties: { name: { type: "string", description: "in the user's language" }, everyH: { type: "number" }, everyM: { type: "number" } }, required: ["name"] } } }, required: ["text"] },
 };
 
 function base(ctx: Record<string, unknown>) {
@@ -73,6 +73,7 @@ function system(mode: string, ctx: Record<string, unknown>, extra: Record<string
   switch (mode) {
     case "auto": return `${b}
 The user writes or dictates a sentence. If it describes something done, bought, planned, broken, refuelled or expiring, call proponi_righe. If it is a question or a request for information/advice, call rispondi: about this boat answer from the data (say clearly when the data is not in the app); general boating questions (oils, mixtures, procedures, rules, how-to, products) answer with your knowledge, and set needsWeb when up-to-date or specific web information is needed.
+Earlier messages in this conversation (if any) are previous questions and your answers: use them to understand short follow-ups like "sì", "fallo", "registra l'olio".
 If the user asks for an engine manual or the manufacturer's maintenance plan/intervals (find, load, set up, update), call rispondi with action "manuals" and engineId.
 Never answer that you are searching or will do something later: give the real answer now, or say clearly what you cannot do.
 ${RULES_ITEMS}`;
@@ -81,6 +82,7 @@ The image is a receipt, invoice or delivery note. Read it and call proponi_righe
     case "doc": return `${b}
 The user attached a photo or a PDF. First understand what it is (insurance policy or certificate, invoice, receipt, quote, safety/registration/radio certificate, survey, licence, engine plate, part label, work report...).
 If the user's text asks a question about it, call rispondi and answer from the document.
+If it is an engine/outboard/generator manual or a maintenance schedule: call rispondi with a short useful summary (what it is, oil, fuel, key intervals) AND fill services with every periodic maintenance item you can read (name, everyH, everyM), with engineId = best match in ctx.engines. Do not ask what to record: the app will offer to compare those services with the user's plan.
 Otherwise call proponi_righe with the useful records, max 4, only with data actually written in the document, and always set docTitle and docKind:
 - Insurance policy: ONE expense (title "Assicurazione <company>", category = the insurance category in ctx.expenseCats, amount = total premium, date = payment or issue date, periodFrom/periodTo = coverage dates) and ONE deadline (title "Scadenza assicurazione <company>", date = coverage end, notes = policy number, coverage and limits in one line).
 - Any document with an expiry (certificate, licence, extinguisher or liferaft service, survey): ONE deadline with that date and the reference number in notes.
@@ -139,6 +141,11 @@ Deno.serve(async (req) => {
 
   if (mode === "manuals") return await manuals(key, extra, ctx);
   if (mode === "svcmap") return await svcmap(key, body, ctx);
+  const hist: any[] = [];
+  if (Array.isArray(body?.history)) for (const h of body.history.slice(-3)) {
+    const q = String(h?.q || "").slice(0, 600), a = String(h?.a || "").slice(0, 1500);
+    if (q && a) hist.push({ role: "user", content: q }, { role: "assistant", content: a });
+  }
   const content: any[] = [];
   if (image) content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } });
   if (pdf) content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf } });
@@ -151,7 +158,7 @@ Deno.serve(async (req) => {
       model: MODEL, max_tokens: mode === "doc" ? 1400 : mode === "summary" || mode === "diagnose" || mode === "advice" ? 1400 : 900,
       system: system(mode, ctx, extra), tools,
       tool_choice: tools.length === 1 ? { type: "tool", name: tools[0].name } : { type: "any" },
-      messages: [{ role: "user", content }],
+      messages: [...hist, { role: "user", content }],
     }),
   });
   if (!r.ok) return json({ error: "ai_" + r.status }, 502);
@@ -168,7 +175,11 @@ Deno.serve(async (req) => {
       if (w && w.length > 120) return json({ text: w, items: [], web: true });
       return json({ text: String(use.input?.text || "").slice(0, 6000) + "\n\n(" + (ctx.lang === "it" || !ctx.lang ? "Ricerca sul web non riuscita: riprova tra poco." : "Web search failed: please try again shortly.") + ")", items: [] });
     }
-    return json({ text: String(use.input?.text || "").slice(0, 6000), items: [] });
+    const sv = Array.isArray(use.input?.services) ? use.input.services.filter((v: any) => v?.name).slice(0, 30).map((v: any) => ({ name: String(v.name).slice(0, 120), everyH: +v.everyH || 0, everyM: +v.everyM || 0 })) : [];
+    const ids = ((ctx.engines as any[]) || []).map((e: any) => String(e.id));
+    const out: any = { text: String(use.input?.text || "").slice(0, 6000), items: [] };
+    if (sv.length) { out.services = sv; out.engineId = ids.includes(String(use.input?.engineId)) ? String(use.input.engineId) : (ids[0] || ""); }
+    return json(out);
   }
   const items = Array.isArray(use?.input?.items) ? use.input.items.filter((x: any) => TYPES.includes(x?.type)).slice(0, 6) : [];
   const dk = ["fattura", "preventivo", "certificato", "manuale", "foto", "altro"].includes(use?.input?.docKind) ? use.input.docKind : "altro";
