@@ -6,6 +6,28 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const MODEL = "claude-haiku-5-5";
 const LIMITS: Record<string, number> = { "": 10, base: 10, pro: 30, fleet: 60 };
 const GLOBAL_DAY = 20000;
+// Tetto di spesa per cliente: massimo 2,00 $ al mese (meno di 2 €). Ricerca web solo finché la spesa del mese è sotto 1,20 $ e al massimo 25 ricerche.
+const CAP_USD = 2.0, WEB_USD_STOP = 1.2, WEB_MAX_MONTH = 25, SONNET_USD_STOP = 0.6;
+type Acc = { usd: number; web: number };
+type St = { admin: any; who: string; month: string; spent: number; webN: number };
+function webOk(st: St, acc: Acc) { return st.spent + acc.usd < WEB_USD_STOP && st.webN + acc.web < WEB_MAX_MONTH; }
+async function claude(acc: Acc, key: string, payload: any) {
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) return { ok: false, status: r.status, out: null as any };
+  const out = await r.json();
+  const u = out.usage || {};
+  const inTok = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+  const son = String(payload.model).includes("sonnet");
+  const [pi, po] = son ? [2, 10] : inTok > 100000 ? [0.5, 2.5] : [0.1, 0.5];
+  const web = +(u.server_tool_use?.web_search_requests || 0);
+  acc.usd += inTok * pi / 1e6 + (u.output_tokens || 0) * po / 1e6 + web * 0.01;
+  acc.web += web;
+  return { ok: true, status: 200, out };
+}
 const MODES = ["auto", "receipt", "plate", "summary", "advice", "diagnose", "message", "translate", "manuals", "doc", "svcmap"];
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -106,6 +128,14 @@ Write a ready-to-send message (WhatsApp/email style) from the boat owner/captain
 }
 
 Deno.serve(async (req) => {
+  const acc: Acc = { usd: 0, web: 0 };
+  const st: St = { admin: null, who: "", month: new Date().toISOString().slice(0, 7), spent: 0, webN: 0 };
+  const res = await handle(req, acc, st);
+  if (acc.usd > 0 && st.admin && st.who) { try { await st.admin.rpc("ai_cost_add", { p_key: st.who, p_month: st.month, p_usd: acc.usd, p_web: acc.web }); } catch (_) { /* best effort */ } }
+  return res;
+});
+
+async function handle(req: Request, acc: Acc, st: St): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "method" }, 405);
   const key = Deno.env.get("ANTHROPIC_API_KEY");
@@ -138,9 +168,19 @@ Deno.serve(async (req) => {
   const { data: lim, error: le } = await admin.rpc("ai_take", { p_key: who, p_max: LIMITS[plan] ?? 10, p_global: GLOBAL_DAY });
   if (le) return json({ error: "limit_check" }, 500);
   if (lim === false) return json({ error: "limit" }, 429);
+  st.admin = admin; st.who = who;
+  const { data: cst } = await admin.rpc("ai_cost_get", { p_key: who, p_month: st.month });
+  st.spent = +(cst?.usd || 0); st.webN = +(cst?.web || 0);
+  if (st.spent >= CAP_USD) {
+    const ML: Record<string, string> = { it: "Hai usato tutto l’assistente IA incluso questo mese. Torna disponibile il 1° del mese prossimo.", en: "You’ve used all the AI assistant included this month. It will be available again on the 1st of next month.", es: "Has usado todo el asistente IA incluido este mes. Vuelve a estar disponible el día 1 del mes que viene.", de: "Du hast den KI-Assistenten für diesen Monat aufgebraucht. Ab dem 1. des nächsten Monats ist er wieder verfügbar.", fr: "Tu as utilisé tout l’assistant IA inclus ce mois-ci. Il sera de nouveau disponible le 1er du mois prochain.", nl: "Je hebt de AI-assistent voor deze maand opgebruikt. Vanaf de 1e van volgende maand is hij weer beschikbaar.", tr: "Bu ay dahil olan yapay zekâ asistanını kullandın. Gelecek ayın 1’inde yeniden kullanılabilir." };
+    const msg = ML[String(ctx.lang || "it")] || ML.en;
+    if (mode === "manuals" || mode === "svcmap") return json({ error: "month_limit" }, 429);
+    if (mode === "receipt" || mode === "plate") return json({ items: [], question: msg });
+    return json({ text: msg, items: [] });
+  }
 
-  if (mode === "manuals") return await manuals(key, extra, ctx);
-  if (mode === "svcmap") return await svcmap(key, body, ctx);
+  if (mode === "manuals") { if (!webOk(st, acc)) return json({ error: "month_limit" }, 429); return await manuals(key, extra, ctx, acc, st); }
+  if (mode === "svcmap") return await svcmap(key, body, ctx, acc);
   const hist: any[] = [];
   if (Array.isArray(body?.history)) for (const h of body.history.slice(-3)) {
     const q = String(h?.q || "").slice(0, 600), a = String(h?.a || "").slice(0, 1500);
@@ -151,18 +191,14 @@ Deno.serve(async (req) => {
   if (pdf) content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf } });
   content.push({ type: "text", text: text || (mode === "summary" ? "Riassunto" : mode === "advice" ? "Consigli" : mode === "doc" ? "Leggi il documento allegato e prepara le righe." : "Leggi l'immagine") });
   const tools = mode === "auto" || mode === "doc" ? [T_ITEMS, T_ANSWER] : (mode === "receipt" || mode === "plate") ? [T_ITEMS] : [T_ANSWER];
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({
-      model: MODEL, max_tokens: mode === "doc" ? 1400 : mode === "summary" || mode === "diagnose" || mode === "advice" ? 1400 : 900,
-      system: system(mode, ctx, extra), tools,
-      tool_choice: tools.length === 1 ? { type: "tool", name: tools[0].name } : { type: "any" },
-      messages: [...hist, { role: "user", content }],
-    }),
+  const cr = await claude(acc, key, {
+    model: MODEL, max_tokens: mode === "doc" ? 1400 : mode === "summary" || mode === "diagnose" || mode === "advice" ? 1400 : 900,
+    system: system(mode, ctx, extra), tools,
+    tool_choice: tools.length === 1 ? { type: "tool", name: tools[0].name } : { type: "any" },
+    messages: [...hist, { role: "user", content }],
   });
-  if (!r.ok) return json({ error: "ai_" + r.status }, 502);
-  const out = await r.json();
+  if (!cr.ok) return json({ error: "ai_" + cr.status }, 502);
+  const out = cr.out;
   const use = (out.content || []).find((c: any) => c.type === "tool_use");
   if (use?.name === "rispondi" && use.input?.action === "manuals") {
     const ids = ((ctx.engines as any[]) || []).map((e: any) => String(e.id));
@@ -170,8 +206,11 @@ Deno.serve(async (req) => {
     return json({ text: "", items: [], action: "manuals", engineId: eid });
   }
   if (use?.name === "rispondi") {
+    if (use.input?.needsWeb && (mode === "auto" || mode === "doc") && !webOk(st, acc)) {
+      return json({ text: String(use.input?.text || "").slice(0, 6000) + "\n\n(" + (ctx.lang === "it" || !ctx.lang ? "Risposta dalle conoscenze generali: la ricerca sul web di questo mese è esaurita, torna disponibile il mese prossimo. Controlla sul manuale del motore." : "Answer from general knowledge: this month's web searches are used up and will be available again next month. Check your engine manual.") + ")", items: [] });
+    }
     if (use.input?.needsWeb && (mode === "auto" || mode === "doc")) {
-      const w = await webAnswer(key, text, String(use.input?.webQuery || ""), ctx);
+      const w = await webAnswer(key, text, String(use.input?.webQuery || ""), ctx, acc);
       if (w && w.length > 120) return json({ text: w, items: [], web: true });
       return json({ text: String(use.input?.text || "").slice(0, 6000) + "\n\n(" + (ctx.lang === "it" || !ctx.lang ? "Ricerca sul web non riuscita: riprova tra poco." : "Web search failed: please try again shortly.") + ")", items: [] });
     }
@@ -184,23 +223,19 @@ Deno.serve(async (req) => {
   const items = Array.isArray(use?.input?.items) ? use.input.items.filter((x: any) => TYPES.includes(x?.type)).slice(0, 6) : [];
   const dk = ["fattura", "preventivo", "certificato", "manuale", "foto", "altro"].includes(use?.input?.docKind) ? use.input.docKind : "altro";
   return json({ items, question: use?.input?.question || "", docTitle: String(use?.input?.docTitle || "").slice(0, 120), docKind: dk });
-});
+}
 
 // ---- Abbina i tagliandi del costruttore a quelli già nel piano ----
-async function svcmap(key: string, body: any, ctx: Record<string, unknown>) {
+async function svcmap(key: string, body: any, ctx: Record<string, unknown>, acc: Acc) {
   const off = (Array.isArray(body?.official) ? body.official : []).slice(0, 40).map((v: any, i: number) => ({ i, name: String(v?.name || "").slice(0, 120), everyH: +v?.everyH || 0, everyM: +v?.everyM || 0 }));
   const eid = String(body?.extra?.engineId || "");
   const mine = ((ctx.services as any[]) || []).filter((v: any) => !eid || v.engineId === eid || !v.engineId).slice(0, 80).map((v: any) => ({ id: String(v.id), name: String(v.name || "").slice(0, 120), everyH: v.everyH, everyM: v.everyM }));
   if (!off.length) return json({ pairs: [] });
   const tool = { name: "abbina", description: "Pairs of the same maintenance task", input_schema: { type: "object", properties: { pairs: { type: "array", items: { type: "object", properties: { i: { type: "number", description: "index in OFFICIAL" }, id: { type: "string", description: "id in MINE" } }, required: ["i", "id"] } } }, required: ["pairs"] } };
   const sys = `Match maintenance tasks. OFFICIAL is the manufacturer's list for one engine, MINE is the user's maintenance plan (any language). Pair an OFFICIAL item with a MINE item only when they are clearly the same task (e.g. "Water pump impeller" = "Girante pompa acqua"; "Lower unit gear oil" = "Olio piede"). Each item at most once. Do not pair different tasks. Call abbina.`;
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1200, system: sys, tools: [tool], tool_choice: { type: "tool", name: "abbina" }, messages: [{ role: "user", content: "OFFICIAL: " + JSON.stringify(off) + "\nMINE: " + JSON.stringify(mine) }] }),
-  });
-  if (!r.ok) return json({ error: "ai_" + r.status }, 502);
-  const out = await r.json();
+  const cr = await claude(acc, key, { model: MODEL, max_tokens: 1200, system: sys, tools: [tool], tool_choice: { type: "tool", name: "abbina" }, messages: [{ role: "user", content: "OFFICIAL: " + JSON.stringify(off) + "\nMINE: " + JSON.stringify(mine) }] });
+  if (!cr.ok) return json({ error: "ai_" + cr.status }, 502);
+  const out = cr.out;
   const use = (out.content || []).find((c: any) => c.type === "tool_use");
   const ids = new Set(mine.map((m: any) => m.id));
   const usedI = new Set<number>(), usedId = new Set<string>();
@@ -213,21 +248,17 @@ async function svcmap(key: string, body: any, ctx: Record<string, unknown>) {
 }
 
 // ---- Risposta con ricerca web (solo quando serve) ----
-async function webAnswer(key: string, question: string, query: string, ctx: Record<string, unknown>) {
+async function webAnswer(key: string, question: string, query: string, ctx: Record<string, unknown>, acc: Acc) {
   const boat = { engines: ctx.engines, boat: (ctx as any).boat, lang: ctx.lang, today: ctx.today };
-  const sys = `You are the assistant inside HullHub, a boat-management app. Today is ${ctx.today}. Answer the user's boating question using web search (max 3 searches), preferring official and manufacturer sources. Write in the language with code "${ctx.lang || "it"}", concise and practical, plain text with short paragraphs or "- " bullets, no markdown headings, no tables, no bold. Do not invent numbers: if sources disagree say so. At the end add a line "Fonti:" (translated) followed by up to 3 lines "- site name: https://url" of the pages you actually used. Boat context (may help): ${JSON.stringify(boat)}`;
+  const sys = `You are the assistant inside HullHub, a boat-management app. Today is ${ctx.today}. Answer the user's boating question using web search (max 2 searches), preferring official and manufacturer sources. Write in the language with code "${ctx.lang || "it"}", concise and practical, plain text with short paragraphs or "- " bullets, no markdown headings, no tables, no bold. Do not invent numbers: if sources disagree say so. At the end add a line "Fonti:" (translated) followed by up to 3 lines "- site name: https://url" of the pages you actually used. Boat context (may help): ${JSON.stringify(boat)}`;
   const user = question + (query ? `\n(search hint: ${query})` : "");
-  const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
+  const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }];
   let messages: any[] = [{ role: "user", content: user }];
   let txt = "";
   for (let turn = 0; turn < 4; turn++) {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1400, system: sys, tools, messages }),
-    });
-    if (!r.ok) return "";
-    const out = await r.json();
+    const cr = await claude(acc, key, { model: MODEL, max_tokens: 1400, system: sys, tools, messages });
+    if (!cr.ok) return "";
+    const out = cr.out;
     txt += (out.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
     if (out.stop_reason === "pause_turn") { messages = [{ role: "user", content: user }, { role: "assistant", content: [...(messages[1]?.content || []), ...out.content] }]; continue; }
     break;
@@ -236,27 +267,24 @@ async function webAnswer(key: string, question: string, query: string, ctx: Reco
 }
 
 // ---- Manuali ufficiali e dati di manutenzione (ricerca web) ----
-async function manuals(key: string, extra: Record<string, string>, ctx: Record<string, unknown>) {
-  const sys = `You find OFFICIAL documentation for a marine engine/drive/generator: owner's or operator's manual, maintenance schedule, service/parts list, published by the manufacturer (or an official dealer). Use web search (max 4 searches). Prefer direct PDF links on the manufacturer's domain. Never use piracy or "free manual download" aggregator sites.
+async function manuals(key: string, extra: Record<string, string>, ctx: Record<string, unknown>, acc: Acc, st: St) {
+  const sys = `You find OFFICIAL documentation for a marine engine/drive/generator: owner's or operator's manual, maintenance schedule, service/parts list, published by the manufacturer (or an official dealer). Use web search (max 3 searches). Prefer direct PDF links on the manufacturer's domain. Never use piracy or "free manual download" aggregator sites.
 Then reply with ONLY a JSON object, no other text:
 {"docs":[{"title":"...","url":"https://...","kind":"manual|maintenance|parts|other","lang":"en","pdf":true}],
  "data":{"oil":{"type":"e.g. SAE 15W-40 API CI-4","qty":"e.g. 18 l with filter"},"coolant":"","filters":[{"name":"oil filter","code":"..."}],"impeller":"","belts":"","services":[{"name":"Engine oil and filter","everyH":250,"everyM":12}],"notes":"short notes"}}
 Only include data you actually read in the sources; leave fields empty otherwise. Write titles and names in the language with code "${ctx.lang || "it"}" (keep part codes as they are). Max 5 docs.`;
   const user = `Engine: ${extra.engine || ""}. Type: ${extra.kind || ""}.`;
-  const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }];
+  const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
   let messages: any[] = [{ role: "user", content: user }];
   const seen = new Set<string>();
   let finalText = "";
   for (const model of [MODEL, "claude-sonnet-5-5"]) {
+    if (model !== MODEL && st.spent + acc.usd >= SONNET_USD_STOP) break;
     messages = [{ role: "user", content: user }]; finalText = ""; let ok = true;
     for (let turn = 0; turn < 4; turn++) {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: 1800, system: sys, tools, messages }),
-      });
-      if (!r.ok) { ok = false; break; }
-      const out = await r.json();
+      const cr = await claude(acc, key, { model, max_tokens: 1800, system: sys, tools, messages });
+      if (!cr.ok) { ok = false; break; }
+      const out = cr.out;
       for (const c of out.content || []) {
         if (c.type === "web_search_tool_result" && Array.isArray(c.content)) for (const x of c.content) if (x?.url) seen.add(String(x.url));
         if (c.type === "text") { finalText += c.text; for (const ct of c.citations || []) if (ct?.url) seen.add(String(ct.url)); }
