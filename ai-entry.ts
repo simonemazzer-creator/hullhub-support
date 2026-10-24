@@ -6,11 +6,13 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const MODEL = "claude-haiku-5-5";
 const LIMITS: Record<string, number> = { "": 10, base: 10, pro: 30, fleet: 60 };
 const GLOBAL_DAY = 20000;
-// Tetto di spesa per cliente: massimo 2,00 $ al mese (meno di 2 €). Ricerca web solo finché la spesa del mese è sotto 1,20 $ e al massimo 25 ricerche.
-const CAP_USD = 2.0, WEB_USD_STOP = 1.2, WEB_MAX_MONTH = 25, SONNET_USD_STOP = 0.6;
+// Tetto di spesa IA per cliente al mese, deciso da Simone: Base 2 €, Pro 4 €, Flotta 8 € (in $ con lo stesso numero, quindi sempre sotto la cifra in euro).
+// Ricerca web fino al 60% del tetto e al massimo 25 / 50 / 100 ricerche al mese; Sonnet per i manuali solo sotto il 30% del tetto.
+const CAPS: Record<string, number> = { "": 2, base: 2, pro: 4, fleet: 8 };
+const WEBMAX: Record<string, number> = { "": 25, base: 25, pro: 50, fleet: 100 };
 type Acc = { usd: number; web: number };
-type St = { admin: any; who: string; month: string; spent: number; webN: number };
-function webOk(st: St, acc: Acc) { return st.spent + acc.usd < WEB_USD_STOP && st.webN + acc.web < WEB_MAX_MONTH; }
+type St = { admin: any; who: string; month: string; spent: number; webN: number; cap: number; webMax: number };
+function webOk(st: St, acc: Acc) { return st.spent + acc.usd < st.cap * 0.6 && st.webN + acc.web < st.webMax; }
 async function claude(acc: Acc, key: string, payload: any) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -129,7 +131,7 @@ Write a ready-to-send message (WhatsApp/email style) from the boat owner/captain
 
 Deno.serve(async (req) => {
   const acc: Acc = { usd: 0, web: 0 };
-  const st: St = { admin: null, who: "", month: new Date().toISOString().slice(0, 7), spent: 0, webN: 0 };
+  const st: St = { admin: null, who: "", month: new Date().toISOString().slice(0, 7), spent: 0, webN: 0, cap: 2, webMax: 25 };
   const res = await handle(req, acc, st);
   if (acc.usd > 0 && st.admin && st.who) { try { await st.admin.rpc("ai_cost_add", { p_key: st.who, p_month: st.month, p_usd: acc.usd, p_web: acc.web }); } catch (_) { /* best effort */ } }
   return res;
@@ -168,10 +170,10 @@ async function handle(req: Request, acc: Acc, st: St): Promise<Response> {
   const { data: lim, error: le } = await admin.rpc("ai_take", { p_key: who, p_max: LIMITS[plan] ?? 10, p_global: GLOBAL_DAY });
   if (le) return json({ error: "limit_check" }, 500);
   if (lim === false) return json({ error: "limit" }, 429);
-  st.admin = admin; st.who = who;
+  st.admin = admin; st.who = who; st.cap = CAPS[plan] ?? 2; st.webMax = WEBMAX[plan] ?? 25;
   const { data: cst } = await admin.rpc("ai_cost_get", { p_key: who, p_month: st.month });
   st.spent = +(cst?.usd || 0); st.webN = +(cst?.web || 0);
-  if (st.spent >= CAP_USD) {
+  if (st.spent >= st.cap) {
     const ML: Record<string, string> = { it: "Hai usato tutto l’assistente IA incluso questo mese. Torna disponibile il 1° del mese prossimo.", en: "You’ve used all the AI assistant included this month. It will be available again on the 1st of next month.", es: "Has usado todo el asistente IA incluido este mes. Vuelve a estar disponible el día 1 del mes que viene.", de: "Du hast den KI-Assistenten für diesen Monat aufgebraucht. Ab dem 1. des nächsten Monats ist er wieder verfügbar.", fr: "Tu as utilisé tout l’assistant IA inclus ce mois-ci. Il sera de nouveau disponible le 1er du mois prochain.", nl: "Je hebt de AI-assistent voor deze maand opgebruikt. Vanaf de 1e van volgende maand is hij weer beschikbaar.", tr: "Bu ay dahil olan yapay zekâ asistanını kullandın. Gelecek ayın 1’inde yeniden kullanılabilir." };
     const msg = ML[String(ctx.lang || "it")] || ML.en;
     if (mode === "manuals" || mode === "svcmap") return json({ error: "month_limit" }, 429);
@@ -279,7 +281,7 @@ Only include data you actually read in the sources; leave fields empty otherwise
   const seen = new Set<string>();
   let finalText = "";
   for (const model of [MODEL, "claude-sonnet-5-5"]) {
-    if (model !== MODEL && st.spent + acc.usd >= SONNET_USD_STOP) break;
+    if (model !== MODEL && st.spent + acc.usd >= st.cap * 0.3) break;
     messages = [{ role: "user", content: user }]; finalText = ""; let ok = true;
     for (let turn = 0; turn < 4; turn++) {
       const cr = await claude(acc, key, { model, max_tokens: 1800, system: sys, tools, messages });
