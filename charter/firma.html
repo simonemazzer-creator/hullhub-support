@@ -9,7 +9,7 @@
 :root{--ink:#0B1F38;--accent:#C8102E;--soft:#EEF3F9;--line:#D9DEE5;--muted:#5A6472;--bg:#F4F6F9;--card:#fff;--ok:#1E7A46}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:#14213D;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
 header{background:var(--ink);color:#fff;padding:22px 16px 18px}header .k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.75}header h1{margin:4px 0 2px;font-size:24px}header p{margin:0;opacity:.85;font-size:14px}
-.lang{float:right;display:flex;gap:4px}.lang button{border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;border-radius:999px;padding:3px 10px;font:inherit;font-size:13px}.lang button[aria-pressed=true]{background:#fff;color:var(--ink)}
+.lang{float:right;display:flex;gap:4px;position:relative;z-index:2}.lang button{border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;border-radius:999px;padding:3px 10px;font:inherit;font-size:13px}.lang button[aria-pressed=true]{background:#fff;color:var(--ink)}
 main{max-width:640px;margin:0 auto;padding:14px 16px 40px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 14px}
 h2{font-size:13px;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
@@ -49,6 +49,7 @@ const T={it:{k:'Contratto di noleggio',kl:'Contratto di locazione',sum:'Riepilog
  `Check-in and check-out. The vessel’s condition, engine hours and fuel are recorded in the check-in and check-out reports.`,
  `Personal data. Data is processed by the owner only for this agreement and for the notices required by law.`]}};
 let L=(navigator.language||'it').startsWith('it')?'it':'en',D=null,S={guests:[],doc:'',sig:null},pdfBlob=null;
+function wa(t){t=String(t||'').trim();let d=t.replace(/[^\d]/g,'');if(/^\+|^00/.test(t))return d.replace(/^00/,'');if(/^3\d{8,9}$/.test(d))return '39'+d;return d}
 function dec(h){try{h=h.replace(/-/g,'+').replace(/_/g,'/');while(h.length%4)h+='=';return JSON.parse(decodeURIComponent(escape(atob(h))))}catch(e){return null}}
 const $=s=>document.querySelector(s);const e=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function fd(s){if(!s)return '';const d=new Date(s+'T12:00');return d.toLocaleDateString(L==='it'?'it-IT':'en-GB',{day:'numeric',month:'long',year:'numeric'})}
@@ -57,7 +58,7 @@ function keep(){document.querySelectorAll('[data-k]').forEach(i=>{S[i.dataset.k]
 function render(){const t=T[L];document.documentElement.lang=L;document.querySelectorAll('.lang button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===L));
  if(!D){$('#app').innerHTML=`<div class="card"><p>${t.bad}</p></div>`;return}
  const loc=D.t==='nat'&&D.k==='L';$('[data-t=k]').textContent=loc?t.kl:t.k;$('#hb').textContent=D.b||'—';$('#hs').textContent=[D.op,D.p].filter(Boolean).join(' · ');
- if(pdfBlob){$('#app').innerHTML=`<div class="card ok"><p><b>${t.done}</b></p><button class="btn" id="share">${t.send}</button>${D.ot?`<a class="btn line" style="margin-top:8px" target="_blank" href="https://wa.me/${D.ot.replace(/[^\d]/g,'').replace(/^3/,'393')}?text=${encodeURIComponent((L==='it'?'Ho firmato il contratto per il ':'I signed the agreement for ')+fd(D.f)+'. '+(L==='it'?'Ti mando il PDF.':'Sending you the PDF.'))}">${t.wa}</a>`:''}${D.oe?`<a class="btn line" style="margin-top:8px" href="mailto:${e(D.oe)}?subject=${encodeURIComponent((L==='it'?'Contratto firmato – ':'Signed agreement – ')+(D.c||''))}">${t.em}</a>`:''}</div>`;$('#share').onclick=sharePdf;return}
+ if(pdfBlob){$('#app').innerHTML=`<div class="card ok"><p><b>${t.done}</b></p><button class="btn" id="share">${t.send}</button>${D.ot?`<a class="btn line" style="margin-top:8px" target="_blank" href="https://wa.me/${wa(D.ot)}?text=${encodeURIComponent((L==='it'?'Ho firmato il contratto per il ':'I signed the agreement for ')+fd(D.f)+'. '+(L==='it'?'Ti mando il PDF.':'Sending you the PDF.'))}">${t.wa}</a>`:''}${D.oe?`<a class="btn line" style="margin-top:8px" href="mailto:${e(D.oe)}?subject=${encodeURIComponent((L==='it'?'Contratto firmato – ':'Signed agreement – ')+(D.c||''))}">${t.em}</a>`:''}</div>`;$('#share').onclick=sharePdf;return}
  const row=(k,v)=>v?`<div><span>${k}</span><b>${e(v)}</b></div>`:'';
  $('#app').innerHTML=`<div class="card"><h2>${t.sum}</h2><div class="kv">${row(t.per,fd(D.f)+(D.to&&D.to!==D.f?' – '+fd(D.to):''))}${row(t.out,D.t1)}${row(t.ret,D.t2)}${row(t.ppl,D.n)}${row(t.zone,D.z)}${row(t.port,D.p)}${row(t.price,D.pr!==''?eur(D.pr):'')}${row(t.dep,D.dp!==''?eur(D.dp):'')}${row(t.cmd,D.cd)}${row(t.op,D.op)}</div></div>
  <div class="card"><h2>${t.cond}</h2><ol class="cl">${t.cl(D).map(x=>`<li>${e(x)}</li>`).join('')}</ol></div>
@@ -104,7 +105,7 @@ async function sharePdf(){const name=(L==='it'?'Contratto ':'Agreement ')+(D.b||
  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==='AbortError')return}
  const u=URL.createObjectURL(f);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove()}
 document.querySelectorAll('.lang button').forEach(b=>b.onclick=()=>{if(D&&!pdfBlob)keep();L=b.dataset.l;render()});
-D=dec(location.hash.slice(1));if(D&&D.t==='nat'&&!D.k)D.k='L';render();
+D=dec(location.hash.slice(1));if(!D||typeof D!=='object'||Array.isArray(D)||!(D.b||D.f))D=null;if(D&&D.t==='nat'&&!D.k)D.k='L';render();
 </script>
 </body>
 </html>
