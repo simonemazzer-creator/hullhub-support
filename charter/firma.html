@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Contratto di noleggio · HullHub</title>
+<style>
+:root{--ink:#0B1F38;--accent:#C8102E;--soft:#EEF3F9;--line:#D9DEE5;--muted:#5A6472;--bg:#F4F6F9;--card:#fff;--ok:#1E7A46}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#14213D;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+header{background:var(--ink);color:#fff;padding:22px 16px 18px}header .k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.75}header h1{margin:4px 0 2px;font-size:24px}header p{margin:0;opacity:.85;font-size:14px}
+.lang{float:right;display:flex;gap:4px}.lang button{border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;border-radius:999px;padding:3px 10px;font:inherit;font-size:13px}.lang button[aria-pressed=true]{background:#fff;color:var(--ink)}
+main{max-width:640px;margin:0 auto;padding:14px 16px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 14px}
+h2{font-size:13px;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}.kv div b{display:block;font-size:16px}.kv div span{font-size:12px;color:var(--muted)}
+ol.cl{padding-left:20px;margin:0;font-size:14px}ol.cl li{margin:0 0 8px}
+label.f{display:block;margin:0 0 10px;font-size:13px;color:var(--muted)}label.f input,label.f select{display:block;width:100%;margin-top:4px;font:inherit;font-size:16px;color:#14213D;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:14px;margin:8px 0}.chk input{width:22px;height:22px;flex:none;accent-color:var(--accent);margin-top:1px}
+.btn{display:block;width:100%;text-align:center;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:700;font-size:16px;background:var(--accent);color:#fff;text-decoration:none;cursor:pointer}.btn.line{background:#fff;color:var(--ink);border:1.5px solid var(--line)}.btn[disabled]{opacity:.45}
+canvas{width:100%;height:150px;background:#fff;border:1px solid var(--line);border-radius:12px;touch-action:none;display:block}
+.small{font-size:13px;color:var(--muted)}.guest{display:grid;grid-template-columns:1fr 130px 34px;gap:6px;margin:0 0 6px}.guest input{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:10px;width:100%}.guest button{border:0;background:var(--soft);border-radius:10px;font-size:18px}
+.ok{background:#E8F5EE;border-color:#B8DFC8}.err{color:#B0102A;font-size:14px;margin:6px 0}
+@media (max-width:420px){.g2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="lang"><button data-l="it" aria-pressed="true">IT</button><button data-l="en" aria-pressed="false">EN</button></div><div class="k" data-t="k">Contratto di noleggio</div><h1 id="hb">—</h1><p id="hs"></p></header>
+<main id="app"><div class="card"><p data-t="bad">Link non valido. Chiedi al locatore di rimandarlo.</p></div></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const T={it:{k:'Contratto di noleggio',kl:'Contratto di locazione',sum:'Riepilogo',per:'Periodo',out:'Uscita',ret:'Rientro previsto',ppl:'Persone a bordo',zone:'Zona',price:'Prezzo',dep:'Caparra',cmd:'Comandante o conduttore',port:'Partenza da',op:'Locatore',cond:'Condizioni',you:'I tuoi dati',name:'Nome e cognome',bd:'Data di nascita',bp:'Luogo di nascita',cf:'Codice fiscale (se ce l’hai)',addr:'Residenza',tel:'Telefono',mail:'Email',dt:'Documento',dn:'Numero del documento',dph:'Foto del documento (facoltativa)',guests:'Ospiti a bordo',gn:'Nome e cognome',gb:'Nato il',add:'Aggiungi un ospite',acc:'Ho letto e accetto le condizioni del contratto.',priv:'Acconsento al trattamento dei miei dati da parte del locatore per il contratto e per le comunicazioni obbligatorie all’Autorità marittima e all’Agenzia delle Entrate.',sig:'Firma',sigh:'Firma qui con il dito',clr:'Cancella',go:'Firma e prepara il PDF',send:'Manda il PDF al locatore',wa:'Avvisa su WhatsApp',em:'Manda per email',done:'Contratto firmato. Manda il PDF al locatore: è l’unica copia, non viene salvata online.',miss:'Completa nome, documento, le due conferme e la firma.',bad:'Link non valido. Chiedi al locatore di rimandarlo.',note:'I tuoi dati restano sul tuo telefono: questa pagina non li invia a nessun server. Il PDF lo mandi tu al locatore.',docs:['Carta d’identità','Passaporto','Patente di guida'],
+ cl:d=>[`Oggetto. ${d.t==='nat'&&d.k==='L'?'Il locatore concede in locazione':'Il locatore concede a noleggio'} l’unità ${d.b}${d.u?' (n. '+d.u+')':''}${d.m?' – '+d.m:''}${d.reg?', sigla '+d.reg:''}, per uso da diporto, nel periodo indicato.`,
+ d.md==='solo'||d.k==='L'?`Conduzione. Il conduttore assume il comando e la responsabilità della navigazione e dichiara di avere l’abilitazione richiesta. Si impegna a rispettare le norme, le ordinanze locali e i limiti dell’unità.`:`Comando. L’unità è condotta dal comandante indicato dal locatore, che decide sulla navigazione e sulla sicurezza. Il cliente può indicare l’itinerario entro i limiti del contratto.`,
+ `Persone a bordo. Non si possono superare le persone indicate né il massimo consentito dai documenti dell’unità. Sono vietati la sublocazione e il trasporto di altre persone a pagamento.`,
+ `Prezzo e caparra. Il prezzo è quello indicato. La caparra viene restituita alla riconsegna, salvo danni o mancanze annotati nel verbale.${d.t!=='nat'?' Il carburante non è a carico del cliente, salvo accordi scritti diversi.':''}`,
+ `Meteo. Se le condizioni meteo-marine rendono rischiosa l’uscita, il locatore o il comandante può rinviarla o annullarla; in questo caso si concorda una nuova data o si restituisce quanto pagato.`,
+ `Sicurezza. Prima della partenza il cliente riceve le istruzioni sull’uso delle dotazioni di sicurezza e le informazioni per le emergenze (1530, canale VHF 16).`,
+ `Consegna e riconsegna. Lo stato dell’unità, le ore motore e il carburante sono annotati nei verbali di consegna e di riconsegna.`,
+ `Dati personali. I dati sono trattati dal locatore solo per il contratto e per le comunicazioni previste dalla legge.`]},
+ en:{k:'Charter agreement',kl:'Bareboat rental agreement',sum:'Summary',per:'Dates',out:'Departure',ret:'Expected return',ppl:'People on board',zone:'Area',price:'Price',dep:'Deposit',cmd:'Skipper',port:'Departing from',op:'Owner',cond:'Terms',you:'Your details',name:'Full name',bd:'Date of birth',bp:'Place of birth',cf:'Italian tax code (if any)',addr:'Address',tel:'Phone',mail:'Email',dt:'ID document',dn:'Document number',dph:'Photo of the document (optional)',guests:'Guests on board',gn:'Full name',gb:'Born on',add:'Add a guest',acc:'I have read and accept the terms of this agreement.',priv:'I agree that the owner processes my data for this agreement and for the notices required by law (maritime authority and Italian Revenue Agency).',sig:'Signature',sigh:'Sign here with your finger',clr:'Clear',go:'Sign and create the PDF',send:'Send the PDF to the owner',wa:'Tell the owner on WhatsApp',em:'Send by email',done:'Agreement signed. Send the PDF to the owner: it is the only copy, nothing is stored online.',miss:'Fill in name, document, both confirmations and the signature.',bad:'Invalid link. Ask the owner to send it again.',note:'Your data stays on your phone: this page does not send it to any server. You send the PDF to the owner yourself.',docs:['ID card','Passport','Driving licence'],
+ cl:d=>[`Subject. The owner ${d.t==='nat'&&d.k==='L'?'rents out (bareboat)':'charters'} the vessel ${d.b}${d.u?' (no. '+d.u+')':''}${d.m?' – '+d.m:''}${d.reg?', registration '+d.reg:''}, for leisure use, for the dates shown.`,
+ d.md==='solo'||d.k==='L'?`Command. The renter takes command and responsibility for navigation and declares to hold the required licence, and will comply with the rules, local ordinances and the vessel’s limits.`:`Command. The vessel is skippered by the owner’s skipper, who decides on navigation and safety. The client may suggest the itinerary within the terms of this agreement.`,
+ `People on board. The number of people shown and the maximum allowed by the vessel’s documents may not be exceeded. Sub-letting and carrying other paying passengers are forbidden.`,
+ `Price and deposit. The price is as shown. The deposit is returned at check-out, except for damage or missing items recorded in the report.${d.t!=='nat'?' Fuel is not charged to the client unless otherwise agreed in writing.':''}`,
+ `Weather. If weather or sea conditions make the trip unsafe, the owner or skipper may postpone or cancel it; a new date is agreed or the amount paid is refunded.`,
+ `Safety. Before departure the client is shown how to use the safety equipment and given emergency information (1530, VHF channel 16).`,
+ `Check-in and check-out. The vessel’s condition, engine hours and fuel are recorded in the check-in and check-out reports.`,
+ `Personal data. Data is processed by the owner only for this agreement and for the notices required by law.`]}};
+let L=(navigator.language||'it').startsWith('it')?'it':'en',D=null,S={guests:[],doc:'',sig:null},pdfBlob=null;
+function dec(h){try{h=h.replace(/-/g,'+').replace(/_/g,'/');while(h.length%4)h+='=';return JSON.parse(decodeURIComponent(escape(atob(h))))}catch(e){return null}}
+const $=s=>document.querySelector(s);const e=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fd(s){if(!s)return '';const d=new Date(s+'T12:00');return d.toLocaleDateString(L==='it'?'it-IT':'en-GB',{day:'numeric',month:'long',year:'numeric'})}
+function eur(v){return v===''||v==null?'—':new Intl.NumberFormat(L==='it'?'it-IT':'en-GB',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(+v)}
+function keep(){document.querySelectorAll('[data-k]').forEach(i=>{S[i.dataset.k]=i.type==='checkbox'?i.checked:i.value});S.guests=[...document.querySelectorAll('.guest')].map(g=>({n:g.querySelector('.gn').value,b:g.querySelector('.gb').value}))}
+function render(){const t=T[L];document.documentElement.lang=L;document.querySelectorAll('.lang button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===L));
+ if(!D){$('#app').innerHTML=`<div class="card"><p>${t.bad}</p></div>`;return}
+ const loc=D.t==='nat'&&D.k==='L';$('[data-t=k]').textContent=loc?t.kl:t.k;$('#hb').textContent=D.b||'—';$('#hs').textContent=[D.op,D.p].filter(Boolean).join(' · ');
+ if(pdfBlob){$('#app').innerHTML=`<div class="card ok"><p><b>${t.done}</b></p><button class="btn" id="share">${t.send}</button>${D.ot?`<a class="btn line" style="margin-top:8px" target="_blank" href="https://wa.me/${D.ot.replace(/[^\d]/g,'').replace(/^3/,'393')}?text=${encodeURIComponent((L==='it'?'Ho firmato il contratto per il ':'I signed the agreement for ')+fd(D.f)+'. '+(L==='it'?'Ti mando il PDF.':'Sending you the PDF.'))}">${t.wa}</a>`:''}${D.oe?`<a class="btn line" style="margin-top:8px" href="mailto:${e(D.oe)}?subject=${encodeURIComponent((L==='it'?'Contratto firmato – ':'Signed agreement – ')+(D.c||''))}">${t.em}</a>`:''}</div>`;$('#share').onclick=sharePdf;return}
+ const row=(k,v)=>v?`<div><span>${k}</span><b>${e(v)}</b></div>`:'';
+ $('#app').innerHTML=`<div class="card"><h2>${t.sum}</h2><div class="kv">${row(t.per,fd(D.f)+(D.to&&D.to!==D.f?' – '+fd(D.to):''))}${row(t.out,D.t1)}${row(t.ret,D.t2)}${row(t.ppl,D.n)}${row(t.zone,D.z)}${row(t.port,D.p)}${row(t.price,D.pr!==''?eur(D.pr):'')}${row(t.dep,D.dp!==''?eur(D.dp):'')}${row(t.cmd,D.cd)}${row(t.op,D.op)}</div></div>
+ <div class="card"><h2>${t.cond}</h2><ol class="cl">${t.cl(D).map(x=>`<li>${e(x)}</li>`).join('')}</ol></div>
+ <div class="card"><h2>${t.you}</h2><label class="f">${t.name}<input data-k="name" value="${e(S.name||D.c||'')}" autocomplete="name"></label>
+ <div class="g2"><label class="f">${t.bd}<input type="date" data-k="bd" value="${e(S.bd||'')}"></label><label class="f">${t.bp}<input data-k="bp" value="${e(S.bp||'')}"></label></div>
+ <label class="f">${t.addr}<input data-k="addr" value="${e(S.addr||'')}" autocomplete="street-address"></label>
+ <div class="g2"><label class="f">${t.tel}<input type="tel" data-k="tel" value="${e(S.tel||'')}" autocomplete="tel"></label><label class="f">${t.mail}<input type="email" data-k="mail" value="${e(S.mail||'')}" autocomplete="email"></label></div>
+ <div class="g2"><label class="f">${t.dt}<select data-k="dt">${t.docs.map(x=>`<option ${S.dt===x?'selected':''}>${x}</option>`).join('')}</select></label><label class="f">${t.dn}<input data-k="dn" value="${e(S.dn||'')}"></label></div>
+ <label class="f">${t.cf}<input data-k="cf" value="${e(S.cf||'')}" autocapitalize="characters"></label>
+ <label class="f">${t.dph}<input type="file" accept="image/*" id="dph"></label>${S.doc?`<img src="${S.doc}" alt="" style="max-width:160px;border-radius:10px;border:1px solid var(--line)">`:''}</div>
+ <div class="card"><h2>${t.guests}</h2><div id="gl">${S.guests.map(g=>`<div class="guest"><input class="gn" placeholder="${t.gn}" value="${e(g.n)}"><input class="gb" type="date" value="${e(g.b)}" aria-label="${t.gb}"><button type="button" class="gx" aria-label="x">×</button></div>`).join('')}</div><button class="btn line" id="ga" type="button">${t.add}</button></div>
+ <div class="card"><label class="chk"><input type="checkbox" data-k="acc" ${S.acc?'checked':''}>${t.acc}</label><label class="chk"><input type="checkbox" data-k="priv" ${S.priv?'checked':''}>${t.priv}</label>
+ <h2 style="margin-top:12px">${t.sig}</h2><div style="position:relative"><canvas id="sg" width="900" height="300"></canvas><span class="small" style="position:absolute;left:12px;top:8px;pointer-events:none">${t.sigh}</span><button type="button" id="sc" style="position:absolute;right:8px;bottom:8px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 12px;font:inherit;font-size:13px">${t.clr}</button></div>
+ <p class="err" id="er" hidden>${t.miss}</p><button class="btn" id="go" style="margin-top:12px">${t.go}</button><p class="small" style="margin:10px 0 0">${t.note}</p></div>`;
+ if(!S.guests.length&&+D.n>1){/* nessuna riga di default */}
+ $('#ga').onclick=()=>{keep();S.guests.push({n:'',b:''});render()};document.querySelectorAll('.gx').forEach((b,i)=>b.onclick=()=>{keep();S.guests.splice(i,1);render()});
+ $('#dph').onchange=ev=>{const f=ev.target.files[0];if(!f)return;keep();img(f,1000,.7).then(u=>{S.doc=u;render()})};
+ pad();$('#go').onclick=make}
+function img(f,max,q){return new Promise(ok=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',q))};im.src=r.result};r.readAsDataURL(f)})}
+function pad(){const c=$('#sg');const x=c.getContext('2d');x.lineWidth=4;x.lineCap='round';x.lineJoin='round';x.strokeStyle='#0B1F38';let dn=false;
+ if(S.sig){const im=new Image();im.onload=()=>x.drawImage(im,0,0);im.src=S.sig;c.dataset.ink=1}
+ const pt=ev=>{const r=c.getBoundingClientRect();return [(ev.clientX-r.left)*c.width/r.width,(ev.clientY-r.top)*c.height/r.height]};
+ c.onpointerdown=ev=>{dn=true;c.setPointerCapture(ev.pointerId);const [a,b]=pt(ev);x.beginPath();x.moveTo(a,b);ev.preventDefault()};
+ c.onpointermove=ev=>{if(!dn)return;const [a,b]=pt(ev);x.lineTo(a,b);x.stroke();c.dataset.ink=1;ev.preventDefault()};
+ c.onpointerup=c.onpointercancel=()=>{dn=false;if(c.dataset.ink)S.sig=c.toDataURL('image/png')};
+ $('#sc').onclick=()=>{x.clearRect(0,0,c.width,c.height);delete c.dataset.ink;S.sig=null}}
+async function make(){keep();const t=T[L];if(!S.name||!S.dn||!S.acc||!S.priv||!S.sig){$('#er').hidden=false;return}
+ const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();let y=0;
+ const cl=s=>String(s||'').normalize('NFC').replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/–/g,'-').replace(/·/g,'-').replace(/×/g,'x');
+ const need=h=>{if(y+h>H-16){doc.addPage();y=18}};
+ doc.setFillColor(11,31,56);doc.rect(0,0,W,24,'F');doc.setTextColor(255);doc.setFontSize(15);doc.text(cl((D.t==='nat'&&D.k==='L'?t.kl:t.k)+' - '+(D.b||'')),12,11);doc.setFontSize(9);doc.text(cl([D.op,D.p].filter(Boolean).join(' - ')),12,18);doc.setTextColor(20);y=32;
+ const kv=(k,v)=>{if(!v)return;need(6);doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.text(cl(k),12,y);doc.setFont('helvetica','normal');const l=doc.splitTextToSize(cl(v),W-70);doc.text(l,62,y);y+=l.length*4.4+1.4};
+ const hd=s=>{need(10);y+=2;doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(200,16,46);doc.text(cl(s.toUpperCase()),12,y);doc.setTextColor(20);y+=6};
+ hd(t.sum);kv(t.per,fd(D.f)+(D.to&&D.to!==D.f?' - '+fd(D.to):''));kv(t.out,D.t1);kv(t.ret,D.t2);kv(t.ppl,String(D.n||''));kv(t.zone,D.z);kv(t.port,D.p);kv(t.price,D.pr!==''?eur(D.pr):'');kv(t.dep,D.dp!==''?eur(D.dp):'');kv(t.cmd,D.cd);kv(t.op,D.op);
+ hd(t.cond);doc.setFontSize(9);doc.setFont('helvetica','normal');t.cl(D).forEach((c,i)=>{const l=doc.splitTextToSize(cl((i+1)+'. '+c),W-24);need(l.length*4+2);doc.text(l,12,y);y+=l.length*4+2});
+ hd(t.you);kv(t.name,S.name);kv(t.bd,[fd(S.bd),S.bp].filter(Boolean).join(', '));kv(t.addr,S.addr);kv(t.tel,S.tel);kv(t.mail,S.mail);kv(t.dt,S.dt+' '+S.dn);kv(t.cf,S.cf);
+ if(S.guests.filter(g=>g.n).length){hd(t.guests);S.guests.filter(g=>g.n).forEach((g,i)=>kv(String(i+1),g.n+(g.b?' - '+fd(g.b):'')))}
+ need(12);y+=2;doc.setFontSize(9);['- '+t.acc,'- '+t.priv].forEach(s=>{const l=doc.splitTextToSize(cl(s),W-24);need(l.length*4+1);doc.text(l,12,y);y+=l.length*4+1});
+ need(44);y+=4;doc.setFont('helvetica','bold');doc.text(cl(t.sig+' - '+S.name),12,y);doc.setFont('helvetica','normal');doc.text(cl(new Date().toLocaleString(L==='it'?'it-IT':'en-GB')),W-12,y,{align:'right'});try{doc.addImage(S.sig,'PNG',12,y+2,90,30)}catch(x){}y+=36;
+ if(S.doc){need(70);doc.text(cl(t.dt),12,y);try{doc.addImage(S.doc,'JPEG',12,y+2,90,60)}catch(x){}y+=66}
+ doc.setFontSize(7.5);doc.setTextColor(120);doc.text(cl('HullHub - rif. '+(D.id||'')),12,H-8);
+ pdfBlob=doc.output('blob');render();sharePdf()}
+async function sharePdf(){const name=(L==='it'?'Contratto ':'Agreement ')+(D.b||'')+' '+(D.f||'')+'.pdf';const f=new File([pdfBlob],name,{type:'application/pdf'});
+ try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==='AbortError')return}
+ const u=URL.createObjectURL(f);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove()}
+document.querySelectorAll('.lang button').forEach(b=>b.onclick=()=>{if(D&&!pdfBlob)keep();L=b.dataset.l;render()});
+D=dec(location.hash.slice(1));if(D&&D.t==='nat'&&!D.k)D.k='L';render();
+</script>
+</body>
+</html>
