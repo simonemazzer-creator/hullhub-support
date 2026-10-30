@@ -28,7 +28,6 @@ canvas{width:100%;height:150px;background:#fff;border:1px solid var(--line);bord
 <body>
 <header><div class="lang"><button data-l="it" aria-pressed="true">IT</button><button data-l="en" aria-pressed="false">EN</button></div><div class="k" data-t="k">Contratto di noleggio</div><h1 id="hb">—</h1><p id="hs"></p></header>
 <main id="app"><div class="card"><p data-t="bad">Link non valido. Chiedi al locatore di rimandarlo.</p></div></main>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const T={it:{k:'Contratto di noleggio',kl:'Contratto di locazione',sum:'Riepilogo',per:'Periodo',out:'Uscita',ret:'Rientro previsto',ppl:'Persone a bordo',zone:'Zona',price:'Prezzo',dep:'Caparra',cmd:'Comandante o conduttore',port:'Partenza da',op:'Locatore',cond:'Condizioni',you:'I tuoi dati',name:'Nome e cognome',bd:'Data di nascita',bp:'Luogo di nascita',cf:'Codice fiscale (se ce l’hai)',addr:'Residenza',tel:'Telefono',mail:'Email',dt:'Documento',dn:'Numero del documento',dph:'Foto del documento (facoltativa)',guests:'Ospiti a bordo',gn:'Nome e cognome',gb:'Nato il',add:'Aggiungi un ospite',acc:'Ho letto e accetto le condizioni del contratto.',priv:'Acconsento al trattamento dei miei dati da parte del locatore per il contratto e per le comunicazioni obbligatorie all’Autorità marittima e all’Agenzia delle Entrate.',sig:'Firma',sigh:'Firma qui con il dito',clr:'Cancella',go:'Firma e prepara il PDF',send:'Manda il PDF al locatore',wa:'Avvisa su WhatsApp',em:'Manda per email',done:'Contratto firmato. Manda il PDF al locatore: è l’unica copia, non viene salvata online.',miss:'Completa nome, documento, le due conferme e la firma.',bad:'Link non valido. Chiedi al locatore di rimandarlo.',note:'I tuoi dati restano sul tuo telefono: questa pagina non li invia a nessun server. Il PDF lo mandi tu al locatore.',docs:['Carta d’identità','Passaporto','Patente di guida'],
  cl:d=>[`Oggetto. ${d.t==='nat'&&d.k==='L'?'Il locatore concede in locazione':'Il locatore concede a noleggio'} l’unità ${d.b}${d.u?' (n. '+d.u+')':''}${d.m?' – '+d.m:''}${d.reg?', sigla '+d.reg:''}, per uso da diporto, nel periodo indicato.`,
@@ -85,7 +84,9 @@ function pad(){const c=$('#sg');const x=c.getContext('2d');x.lineWidth=4;x.lineC
  c.onpointermove=ev=>{if(!dn)return;const [a,b]=pt(ev);x.lineTo(a,b);x.stroke();c.dataset.ink=1;ev.preventDefault()};
  c.onpointerup=c.onpointercancel=()=>{dn=false;if(c.dataset.ink)S.sig=c.toDataURL('image/png')};
  $('#sc').onclick=()=>{x.clearRect(0,0,c.width,c.height);delete c.dataset.ink;S.sig=null}}
+function lib(){return new Promise((ok,ko)=>{if(window.jspdf)return ok();const s=document.createElement('script');s.src='jspdf.js?v=1';s.onload=ok;s.onerror=()=>{const s2=document.createElement('script');s2.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';s2.onload=ok;s2.onerror=ko;document.head.appendChild(s2)};document.head.appendChild(s)})}
 async function make(){keep();const t=T[L];if(!S.name||!S.dn||!S.acc||!S.priv||!S.sig){$('#er').hidden=false;return}
+ const g=$('#go');g.disabled=true;g.textContent='…';try{await lib()}catch(x){g.disabled=false;g.textContent=t.go;alert(L==='it'?'Connessione assente: riprova tra poco.':'No connection: please try again.');return}
  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();let y=0;
  const cl=s=>String(s||'').normalize('NFC').replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/–/g,'-').replace(/·/g,'-').replace(/×/g,'x');
  const need=h=>{if(y+h>H-16){doc.addPage();y=18}};
@@ -105,7 +106,8 @@ async function sharePdf(){const name=(L==='it'?'Contratto ':'Agreement ')+(D.b||
  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==='AbortError')return}
  const u=URL.createObjectURL(f);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove()}
 document.querySelectorAll('.lang button').forEach(b=>b.onclick=()=>{if(D&&!pdfBlob)keep();L=b.dataset.l;render()});
-D=dec(location.hash.slice(1));if(!D||typeof D!=='object'||Array.isArray(D)||!(D.b||D.f))D=null;if(D&&D.t==='nat'&&!D.k)D.k='L';render();
+function boot(){D=dec(location.hash.slice(1));if(!D||typeof D!=='object'||Array.isArray(D)||!(D.b||D.f))D=null;if(D&&D.t==='nat'&&!D.k)D.k='L';pdfBlob=null;render()}
+window.addEventListener('hashchange',boot);boot();setTimeout(()=>lib().catch(()=>{}),1500);
 </script>
 </body>
 </html>
