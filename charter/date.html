@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Date libere · HullHub</title>
+<style>
+:root{--ink:#0B1F38;--accent:#C8102E;--line:#D9DEE5;--muted:#5A6472;--bg:#F4F6F9;--card:#fff;--ok:#1E7A46;--busy:#E4E8EE}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#14213D;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+header{background:var(--ink);color:#fff;padding:22px 16px 20px}header .in{max-width:640px;margin:0 auto}header h1{margin:2px 0 2px;font-size:26px;line-height:1.2}header p{margin:0;opacity:.85;font-size:14px}
+.lang{float:right;display:flex;gap:4px}.lang button{border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;border-radius:999px;padding:3px 10px;font:inherit;font-size:13px;cursor:pointer}.lang button[aria-pressed=true]{background:#fff;color:var(--ink)}
+main{max-width:640px;margin:0 auto;padding:14px 16px 48px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 14px}
+.note{font-size:15px;margin:0}
+.leg{display:flex;gap:16px;font-size:13px;color:var(--muted);margin:0 0 10px}.leg i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:6px;vertical-align:-1px}
+.mh{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px}.mh b{font-size:17px;text-transform:capitalize}
+.mh button{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:20px;cursor:pointer}.mh button:disabled{opacity:.3}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.grid .wd{font-size:12px;color:var(--muted);text-align:center;padding:2px 0}
+.d{aspect-ratio:1;border-radius:10px;border:1px solid var(--line);background:#fff;font:600 15px/1 inherit;display:grid;place-items:center;cursor:pointer;color:var(--ink);transition:transform .12s ease,background .15s ease}
+.d.free{border-color:#B9DCC8;background:#F1FAF4;color:var(--ok)}.d.free:hover{background:#E1F3E8}.d.free:active{transform:scale(.94)}
+.d.busy{background:var(--busy);color:#9AA3AF;text-decoration:line-through;cursor:default;border-color:transparent}
+.d.past{background:transparent;border-color:transparent;color:#C3C9D1;cursor:default}.d.sel{background:var(--ok);color:#fff;border-color:var(--ok)}
+.d:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #2A78D6;outline-offset:2px}
+#ask{display:none}#ask.on{display:block;animation:up .25s ease}@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}input{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line);border-radius:12px}
+.btn{display:block;width:100%;text-align:center;text-decoration:none;font:600 16px/1 inherit;padding:15px;border-radius:14px;border:0;margin-top:12px;cursor:pointer}
+.wa{background:#1E7A46;color:#fff}.ml{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.muted{color:var(--muted);font-size:13px}.err{text-align:center;padding:40px 10px;color:var(--muted)}
+footer{text-align:center;font-size:12px;color:var(--muted);margin-top:18px}footer a{color:inherit}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="in"><div class="lang"><button data-l="it">IT</button><button data-l="en">EN</button></div><p id="k"></p><h1 id="t">…</h1><p id="s"></p></div></header>
+<main id="m"><div class="err" id="load">…</div></main>
+<script>
+const SB='https://tyxcgamziaiihpthatvc.supabase.co',SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5eGNnYW16aWFpaWhwdGhhdHZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNDkxODcsImV4cCI6MjEwNzgyNTE4N30.JR5iIe70f0xvYakRzMoYlF_bE6biOnH_gtY5UUmscHQ';
+const T={it:{k:'Date libere',load:'Carico il calendario…',gone:'Questo link non è più attivo. Chiedi al proprietario quello nuovo.',net:'Non riesco a caricare il calendario. Controlla la connessione e riprova.',free:'libero',busy:'occupato',pick:'Tocca un giorno libero per chiedere la data.',ask:'Chiedi questa data',name:'Il tuo nome',pers:'Quante persone',wa:'Scrivi su WhatsApp',ml:'Scrivi un’email',port:'Partenza da',max:'fino a {n} persone',upd:'Aggiornato il {d}',msg:'Ciao, ho visto le date libere di {b}. Vorrei noleggiare il {d}{p}.{n}',mp:' per {n} persone',mn:' Sono {n}.',wd:['L','M','M','G','V','S','D'],loc:'it-IT'},
+ en:{k:'Available dates',load:'Loading the calendar…',gone:'This link is no longer active. Ask the owner for the new one.',net:'Could not load the calendar. Check your connection and try again.',free:'available',busy:'booked',pick:'Tap an available day to request it.',ask:'Request this date',name:'Your name',pers:'How many people',wa:'Message on WhatsApp',ml:'Send an email',port:'Departure from',max:'up to {n} people',upd:'Updated {d}',msg:'Hello, I saw the available dates for {b}. I would like to charter on {d}{p}.{n}',mp:' for {n} people',mn:' My name is {n}.',wd:['M','T','W','T','F','S','S'],loc:'en-GB'}};
+let L=(navigator.language||'it').slice(0,2)==='it'?'it':'en',D=null,mo=0,sel='';const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tr=(k,o)=>String(T[L][k]).replace(/\{(\w)\}/g,(_,x)=>o&&o[x]!=null?o[x]:'');
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const today=iso(new Date());
+function head(){document.documentElement.lang=L;document.querySelectorAll('.lang button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===L));$('#k').textContent=T[L].k;
+ if(!D){$('#t').textContent='HullHub';$('#s').textContent='';return}
+ $('#t').textContent=D.b||'';const s=[D.m,D.l?String(D.l).replace('.',L==='it'?',':'.')+' m':'',D.p?tr('port')+' '+D.p:'',D.mx?tr('max',{n:D.mx}):''].filter(Boolean);$('#s').textContent=s.join(' · ');document.title=T[L].k+' · '+(D.b||'HullHub')}
+function cal(){const busy=new Set(D.busy||[]);const b=new Date();b.setDate(1);b.setMonth(b.getMonth()+mo);const y=b.getFullYear(),m=b.getMonth();
+ const first=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate();let g=T[L].wd.map(w=>`<span class="wd">${w}</span>`).join('');for(let i=0;i<first;i++)g+='<span></span>';
+ for(let d=1;d<=n;d++){const k=iso(new Date(y,m,d));const c=k<today?'past':busy.has(k)?'busy':'free';g+=`<button class="d ${c}${k===sel?' sel':''}" data-d="${k}" ${c!=='free'?'disabled':''} aria-label="${new Date(y,m,d).toLocaleDateString(T[L].loc,{weekday:'long',day:'numeric',month:'long'})}: ${c==='busy'?T[L].busy:c==='free'?T[L].free:''}">${d}</button>`}
+ return `<div class="mh"><button data-mv="-1" ${mo<=0?'disabled':''} aria-label="‹">‹</button><b>${b.toLocaleDateString(T[L].loc,{month:'long',year:'numeric'})}</b><button data-mv="1" ${mo>=11?'disabled':''} aria-label="›">›</button></div><div class="grid">${g}</div>`}
+function render(){head();if(!D)return;const ph=String(D.ph||'').replace(/[^\d+]/g,'');
+ $('#m').innerHTML=`${D.nt?`<section class="card"><p class="note">${esc(D.nt)}</p></section>`:''}
+ <section class="card"><div class="leg"><span><i style="background:#F1FAF4;border:1px solid #B9DCC8"></i>${T[L].free}</span><span><i style="background:var(--busy)"></i>${T[L].busy}</span></div>${cal()}<p class="muted" style="margin:10px 0 0">${T[L].pick}</p></section>
+ <section class="card" id="ask"><b id="askd" style="font-size:18px"></b><label for="nm">${T[L].name}</label><input id="nm" autocomplete="name"><label for="np">${T[L].pers}</label><input id="np" type="number" min="1" ${D.mx?'max="'+D.mx+'"':''} inputmode="numeric">
+ ${ph?`<button class="btn wa" data-go="wa">${T[L].wa}</button>`:''}${D.em?`<button class="btn ml" data-go="ml">${T[L].ml}</button>`:''}</section>
+ <footer>${D.u?tr('upd',{d:new Date(D.u).toLocaleDateString(T[L].loc,{day:'numeric',month:'long'})})+' · ':''}<a href="https://hullhub.app" target="_blank" rel="noopener">HullHub</a></footer>`;
+ if(sel)showAsk()}
+function showAsk(){const a=$('#ask');if(!a)return;a.classList.add('on');$('#askd').textContent=new Date(sel+'T12:00').toLocaleDateString(T[L].loc,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+function msg(){const n=($('#nm').value||'').trim(),p=($('#np').value||'').trim();return tr('msg',{b:D.b||'',d:new Date(sel+'T12:00').toLocaleDateString(T[L].loc,{weekday:'long',day:'numeric',month:'long'}),p:p?tr('mp',{n:p}):'',n:n?tr('mn',{n}):''})}
+document.addEventListener('click',e=>{const l=e.target.closest('.lang button');if(l){L=l.dataset.l;render();if(!D)head();return}
+ const mv=e.target.closest('[data-mv]');if(mv){mo=Math.max(0,Math.min(11,mo+ +mv.dataset.mv));render();return}
+ const d=e.target.closest('.d.free');if(d){sel=d.dataset.d;render();setTimeout(()=>$('#ask').scrollIntoView({behavior:'smooth',block:'center'}),60);return}
+ const g=e.target.closest('[data-go]');if(g){const t=msg();if(g.dataset.go==='wa'){let ph=String(D.ph).replace(/[^\d+]/g,'');if(ph.startsWith('00'))ph=ph.slice(2);else if(ph.startsWith('+'))ph=ph.slice(1);else if(ph.length===10&&ph.startsWith('3'))ph='39'+ph;location.href='https://wa.me/'+ph+'?text='+encodeURIComponent(t)}else location.href='mailto:'+D.em+'?subject='+encodeURIComponent(T[L].k+' '+(D.b||''))+'&body='+encodeURIComponent(t)}});
+(async()=>{head();$('#load').textContent=T[L].load;const q=new URLSearchParams(location.search).get('k');if(!q||!/^[A-Za-z0-9]{10,16}$/.test(q)){$('#load').textContent=T[L].gone;return}
+ try{const r=await fetch(SB+'/rest/v1/rpc/charter_link_get',{method:'POST',headers:{apikey:SK,Authorization:'Bearer '+SK,'Content-Type':'application/json'},body:JSON.stringify({p_k:q})});const j=await r.json();
+  if(!r.ok||!j||j.v!=='av'){$('#load').textContent=T[L].gone;return}D=j;render()}catch(e){$('#load').textContent=T[L].net}})();
+</script>
+</body>
+</html>
