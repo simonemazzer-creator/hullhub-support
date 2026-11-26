@@ -1,5 +1,0 @@
-<!doctype html><meta charset=utf-8><title>send</title><body>invio…<script>
-(async()=>{const q=new URLSearchParams(location.search);const n=+q.get('n')||7,p=q.get('p')||'HullHub_EN_Schedule_';const out=[];
-for(let i=1;i<=n;i++){const r=await fetch(p+i+'.jpg?'+Date.now());out.push({name:p+i+'.jpg',buf:await r.arrayBuffer()})}
-if(window.opener){window.opener.postMessage({hhimgs:out},'https://www.instagram.com');document.body.textContent='inviate '+out.length}else document.body.textContent='no opener'})();
-</script>
